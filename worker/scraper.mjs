@@ -1,5 +1,6 @@
 import {authenticate,login,AuthError} from './auth.mjs';
 import {koofr} from './koofr.mjs';
+import {central,service} from './central.mjs';
 // Cloudflare Worker entry point. Deploy with worker/wrangler.jsonc (includes koofr.mjs).
 const DEFAULT_ORIGIN = 'https://riccardogiussani.github.io';
 const UA = 'BookflixMetadata/0.1 (personal library; low-volume metadata lookup)';
@@ -140,8 +141,8 @@ export default {async fetch(request,env={},context={waitUntil:()=>{}}){
  if(origin&&!allowed.includes(origin))return json({error:'Origine non autorizzata.'},403);
  if(request.method==='OPTIONS')return new Response(null,{status:204,headers});
  if(!['GET','PUT','POST'].includes(request.method))return json({error:'Metodo non consentito.'},405);
- const url=new URL(request.url);if(url.pathname==='/health')return json({ok:true,version:'0.9.0',storage:{provider:'Koofr',configured:!!(env.KOOFR_USERNAME&&env.KOOFR_PASSWORD&&env.KOOFR_COLLECTION_ID)},authentication:{required:true,configured:!!(env.AUTH_USERS_JSON&&env.AUTH_SESSION_SECRET),mode:'users'},sources:Object.values(SOURCE_NAMES),automatic:['ibs','feltrinelli','hoepli','mondadori','giunti','amazon (ISBN 978)']});
- const library=url.pathname==='/library'||url.pathname.startsWith('/library/');
+ const url=new URL(request.url);if(url.pathname==='/health')return json({ok:true,version:'0.12.0',storage:{provider:'Firestore + Koofr',configured:!!(env.GOOGLE_SERVICE_ACCOUNT_JSON&&env.KOOFR_USERNAME&&env.KOOFR_PASSWORD)},authentication:{required:true,configured:!!env.FIREBASE_PROJECT_ID,mode:'firebase'},sources:Object.values(SOURCE_NAMES),automatic:['ibs','feltrinelli','hoepli','mondadori','giunti','amazon (ISBN 978)']});
+ const v2=url.pathname.startsWith('/v2/');const library=v2||url.pathname==='/library'||url.pathname.startsWith('/library/');
  if(!library&&!(url.pathname==='/auth/login'&&request.method==='POST')&&request.method!=='GET')return json({error:'Metodo non consentito.'},405);
  if(!library&&!['/lookup','/cover','/auth/check','/auth/login'].includes(url.pathname))return json({error:'Percorso non trovato.'},404);
  const ip=request.headers.get('CF-Connecting-IP')||'local';const now=Date.now();if(windows.size>2000)for(const [k,v] of windows)if(v.until<now)windows.delete(k);const bucket=ip+(library?':library':url.pathname.startsWith('/auth/')?':login':':metadata');const window=windows.get(bucket)||{until:now+60000,count:0};if(window.until<now){window.until=now+60000;window.count=0;}window.count++;windows.set(bucket,window);if(window.count>(library?30000:url.pathname.startsWith('/auth/')?12:60))return json({error:'Troppe richieste. Attendi un minuto.'},429);
@@ -150,7 +151,10 @@ export default {async fetch(request,env={},context={waitUntil:()=>{}}){
   if(url.pathname==='/auth/login'){if(request.method!=='POST')return json({error:'Metodo non consentito.'},405);return json(await login(request,env));}
   identity=await authenticate(request,env);
  }catch(e){if(e instanceof AuthError&&e.status===401){const failed=failures&&failures.until>now?failures:{until:now+60000,count:0};failed.count++;windows.set(failureKey,failed);}return json({error:e instanceof AuthError?e.message:'Verifica accesso non disponibile.'},e instanceof AuthError?e.status:503);}
- if(url.pathname==='/auth/check')return json({authenticated:true,user:identity.user,expiresAt:identity.expiresAt});
+ if(url.pathname==='/auth/check')return json({authenticated:true,user:identity.user,expiresAt:identity.expiresAt,libraryAccess:identity.libraryAccess,capabilities:{selfServiceAccounts:true,centralCatalog:true}});
+ if(v2)return central(request,env,headers,identity);
+ const libraryId=url.searchParams.get('libraryId');if(!library&&libraryId){try{await service(env,identity).sourcePermission(libraryId);}catch(e){return json({error:e.message},e.status||503);}}
+ if((library||!libraryId)&&identity.libraryAccess!=='owner')return json({error:'Nessuna libreria associata al tuo account. Non hai accesso alla raccolta precedente.'},403);
  if(library)return koofr(request,env,headers,identity);
  try{
   const isbn=isbn13(url.searchParams.get('isbn'));const supplied=url.searchParams.get('url');

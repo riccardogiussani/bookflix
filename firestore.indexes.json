@@ -1,0 +1,11 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    {"collectionGroup": "catalog", "fieldPath": "metadata", "indexes": []},
+    {"collectionGroup": "catalog", "fieldPath": "cover", "indexes": []},
+    {"collectionGroup": "libraries", "fieldPath": "members", "indexes": []},
+    {"collectionGroup": "items", "fieldPath": "overrides", "indexes": []},
+    {"collectionGroup": "reviews", "fieldPath": "value", "indexes": []},
+    {"collectionGroup": "ratings", "fieldPath": "value", "indexes": []}
+  ]
+}

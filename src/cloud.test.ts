@@ -3,9 +3,9 @@ import {beforeEach,afterEach,expect,it,vi} from 'vitest';
 // @ts-expect-error Worker modules are plain JavaScript and run in the integration test.
 import worker from '../worker/scraper.mjs';
 // @ts-expect-error Shared Worker test fixtures run as JavaScript.
-import {testEnv,tokenFor,identityFor} from '../worker/test-auth.mjs';
+import {testEnv,tokenFor,identityFor,jwksResponse} from '../worker/test-auth.mjs';
 import {db,blankBook,exportLibrary,Library,saveBook} from './data';
-import {openCloud,refreshCloud,cloudSave,cloudDelete,cloudImport,CloudConflict} from './cloud';
+import {openCloud,refreshCloud,cloudSave,cloudDelete,cloudImport,CloudConflict} from './legacy-cloud';
 import {AccessDeniedError,WORKER_URL} from './isbn';
 const code=await tokenFor();
 const env={...testEnv,KOOFR_USERNAME:'test@example.invalid',KOOFR_PASSWORD:'not-real-webdav',KOOFR_COLLECTION_ID:'ca91c2ce-b8c7-487e-8f40-99024a354c63'};
@@ -13,9 +13,9 @@ const root='https://app.koofr.net/dav/Koofr/.booflix/'+env.KOOFR_COLLECTION_ID;
 let files:Map<string,{body:Uint8Array;type:string;etag:string}>,revision:number,offline:boolean,failCatalog:boolean,conflictOnPut:boolean;
 let calls:{url:string;method:string;headers:Headers}[];
 beforeEach(async()=>{
- await db.books.clear();await db.sync.clear();files=new Map();revision=0;offline=false;failCatalog=false;conflictOnPut=false;calls=[];
+ env.BOOKFLIX_OWNER_UID=testEnv.BOOKFLIX_OWNER_UID;await db.books.clear();await db.sync.clear();files=new Map();revision=0;offline=false;failCatalog=false;conflictOnPut=false;calls=[];
  vi.stubGlobal('fetch',vi.fn(async(input:string|Request,options:RequestInit={})=>{
-  const url=typeof input==='string'?input:input.url;
+  const keyResponse=jwksResponse(input);if(keyResponse)return keyResponse;const url=typeof input==='string'?input:input.url;
   if(url.startsWith(WORKER_URL)){if(offline)throw Error('offline');return worker.fetch(new Request(url,{...options,headers:{...options.headers,Origin:'https://riccardogiussani.github.io','CF-Connecting-IP':crypto.randomUUID()}}),env);}
   const headers=new Headers(options.headers),method=options.method||'GET';calls.push({url,method,headers});expect(url.startsWith('https://app.koofr.net/dav/Koofr/.booflix')).toBe(true);expect(headers.get('Authorization')).toBe('Basic '+btoa(env.KOOFR_USERNAME+':'+env.KOOFR_PASSWORD));expect(headers.get('Authorization')).not.toContain(code);expect(options.redirect).toBe('manual');
   if(method==='MKCOL')return new Response(null,{status:201});const old=files.get(url);
@@ -99,14 +99,24 @@ it('non sostituisce la cache se la pulizia di note e stato incontra un conflitto
 });
 
 it('il Worker impedisce la falsificazione e la cancellazione delle recensioni altrui anche dal catalogo completo',async()=>{
- const {changeReview}=await import('./reviews');await openCloud(code);let book=(await cloudSave(code,{...blankBook(),title:'Condiviso'}))[0];book=(await cloudSave(code,changeReview(book,identityFor('Riccardo'),{type:'add',text:'Recensione personale'}),true))[0];const sara=await tokenFor('sara');
+ const {changeReview}=await import('./reviews');await openCloud(code);let book=(await cloudSave(code,{...blankBook(),title:'Condiviso'}))[0];book=(await cloudSave(code,changeReview(book,identityFor('Riccardo'),{type:'add',text:'Recensione personale'}),true))[0];const sara=await tokenFor('sara');env.BOOKFLIX_OWNER_UID=identityFor('Sara').id;
  await expect(cloudSave(sara,{...book,reviews:[]},true)).rejects.toThrow('recensioni di altri');await expect(cloudSave(sara,{...book,reviews:[{...book.reviews[0],text:'Modificata da Sara'}]},true)).rejects.toThrow('solo le tue');await expect(cloudDelete(sara,book.id,book.updatedAt)).rejects.toThrow('recensioni di altri');expect((await db.books.get(book.id))?.reviews[0].text).toBe('Recensione personale');
 });
 
 it('condivide voti personali, ne protegge la proprietà e conferma le date del server',async()=>{
- const {changeRating,ratingSummary}=await import('./ratings');await openCloud(code);let book=(await cloudSave(code,{...blankBook(),title:'Voti'}))[0];book=(await cloudSave(code,changeRating(book,identityFor('Riccardo'),5),true))[0];const sara=await tokenFor('sara');book=(await cloudSave(sara,changeRating(book,identityFor('Sara'),2),true))[0];expect(ratingSummary(book)).toEqual({average:3.5,count:2});await db.books.clear();await db.sync.clear();book=(await refreshCloud(code))[0];expect(ratingSummary(book)).toEqual({average:3.5,count:2});
+ const {changeRating,ratingSummary}=await import('./ratings');await openCloud(code);let book=(await cloudSave(code,{...blankBook(),title:'Voti'}))[0];book=(await cloudSave(code,changeRating(book,identityFor('Riccardo'),5),true))[0];const sara=await tokenFor('sara');env.BOOKFLIX_OWNER_UID=identityFor('Sara').id;book=(await cloudSave(sara,changeRating(book,identityFor('Sara'),2),true))[0];expect(ratingSummary(book)).toEqual({average:3.5,count:2});await db.books.clear();await db.sync.clear();book=(await refreshCloud(sara))[0];expect(ratingSummary(book)).toEqual({average:3.5,count:2});
  await expect(cloudSave(sara,{...book,ratings:book.ratings.filter(r=>r.userId===identityFor('Sara').id)},true)).rejects.toThrow('rimuovere valutazioni');await expect(cloudDelete(sara,book.id,book.updatedAt)).rejects.toThrow('valutazioni di altri');book=(await cloudSave(sara,changeRating(book,identityFor('Sara'),null),true))[0];expect(ratingSummary(book)).toEqual({average:5,count:1});
 });
 it('ripulisce i vecchi voti nel catalogo Koofr e nella cache senza assegnarli a nessuno',async()=>{
  await openCloud(code);const book=(await cloudSave(code,{...blankBook(),title:'Vecchio voto'}))[0];const stored=files.get(root+'/books.json')!;const catalog=JSON.parse(new TextDecoder().decode(stored.body));catalog.books[0].rating=4;catalog.books[0].legacyRating=5;delete catalog.books[0].ratings;stored.body=new TextEncoder().encode(JSON.stringify(catalog));stored.etag='"old-rating"';const loaded=await refreshCloud(code);expect(loaded[0].ratings).toEqual([]);expect(loaded[0]).not.toHaveProperty('rating');const clean=JSON.parse(new TextDecoder().decode(files.get(root+'/books.json')!.body));expect(clean.books[0]).not.toHaveProperty('rating');expect(clean.books[0]).not.toHaveProperty('legacyRating');expect((await db.books.get(book.id))?.ratings).toEqual([]);
 });
+
+it('esegue il reset una sola volta, mantiene libri e copertine e non cancella i contributi nuovi',async()=>{
+ const {changeReview}=await import('./reviews');await openCloud(code);const book=(await cloudSave(code,{...blankBook(),title:'Libro conservato',authors:['Autore'],location:'Soggiorno',cover:new Blob(['original cover'],{type:'image/png'})}))[0];const stored=files.get(root+'/books.json')!;const raw=JSON.parse(new TextDecoder().decode(stored.body));delete raw.identityEpoch;const old=raw.books[0];old.reviews=[{id:'old-review',author:'Vecchio utente',text:'Da rimuovere'}];old.ratings=[{userId:'old-user',value:5}];old.notes='vecchie note';old.rating=4;const path=old.coverPath;stored.body=new TextEncoder().encode(JSON.stringify(raw));stored.etag='"before-account-reset"';
+ const loaded=(await refreshCloud(code))[0];expect(loaded.title).toBe(book.title);expect(loaded.authors).toEqual(book.authors);expect(loaded.location).toBe('Soggiorno');expect(await loaded.cover?.text()).toBe('original cover');expect(loaded.reviews).toEqual([]);expect(loaded.ratings).toEqual([]);const cleaned=JSON.parse(new TextDecoder().decode(files.get(root+'/books.json')!.body));expect(cleaned.identityEpoch).toBe('firebase-self-service-v1');expect(cleaned.books[0].coverPath).toBe(path);expect(cleaned.books[0]).not.toHaveProperty('notes');expect(cleaned.books[0]).not.toHaveProperty('rating');
+ await cloudSave(code,changeReview(loaded,identityFor('Riccardo'),{type:'add',text:'Nuova recensione'}),true);expect((await refreshCloud(code))[0].reviews[0].text).toBe('Nuova recensione');
+});
+it('non sovrascrive libri o cache se il reset incontra una modifica concorrente',async()=>{
+ await openCloud(code);const book=(await cloudSave(code,{...blankBook(),title:'Da conservare'}))[0];const stored=files.get(root+'/books.json')!;const raw=JSON.parse(new TextDecoder().decode(stored.body));delete raw.identityEpoch;raw.books[0].reviews=[{text:'Vecchio contributo'}];stored.body=new TextEncoder().encode(JSON.stringify(raw));stored.etag='"racing-reset"';const previous=(await db.sync.get('snapshot'))?.value;conflictOnPut=true;await expect(refreshCloud(code)).rejects.toBeInstanceOf(CloudConflict);expect((await db.books.get(book.id))?.title).toBe('Da conservare');expect((await db.sync.get('snapshot'))?.value).toEqual(previous);expect(JSON.parse(new TextDecoder().decode(files.get(root+'/books.json')!.body))).not.toHaveProperty('identityEpoch');
+});
+it('non permette a un nuovo account di leggere la raccolta o avviare il reset',async()=>{const stranger=await tokenFor('new-person');await expect(openCloud(stranger)).rejects.toThrow('Nessuna libreria associata');expect(calls).toEqual([]);});

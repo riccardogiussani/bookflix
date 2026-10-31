@@ -1,0 +1,5 @@
+import {readFile,writeFile} from 'node:fs/promises';
+import {parseEnv} from 'node:util';
+import {prepareFirestore} from './firestore-setup.mjs';
+const root=new URL('../',import.meta.url);
+try{let values;try{values=parseEnv(await readFile(new URL('.env',root),'utf8'));}catch{throw Error('Compila prima .env con FIREBASE_PROJECT_ID.');}let service;try{service=JSON.parse(await readFile(new URL('.bookflix-firestore-service-account.local.json',root),'utf8'));}catch{throw Error('Salva il JSON scaricato da Google come .bookflix-firestore-service-account.local.json nella radice del progetto. Non incollarlo in chat.');}const result=prepareFirestore(service,values.FIREBASE_PROJECT_ID);await writeFile(new URL('.bookflix-firestore-worker.local.json',root),JSON.stringify(result,null,2)+'\n',{mode:0o600});console.log('Pronto: .bookflix-firestore-worker.local.json. Caricalo personalmente nel Worker con wrangler secret bulk. Nessuna risorsa creata e nessun deploy eseguito.');}catch(e){console.error(e instanceof Error?e.message:'Preparazione non riuscita.');process.exitCode=1;}

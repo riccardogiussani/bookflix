@@ -1,0 +1,5 @@
+import {readFile,writeFile} from 'node:fs/promises';
+import {parseEnv} from 'node:util';
+import {prepareFirebase} from './firebase-setup.mjs';
+const root=new URL('../',import.meta.url);
+try{let values;try{values=parseEnv(await readFile(new URL('.env',root),'utf8'));}catch{throw Error('Compila il .env dalla struttura di .env.example. Non inviarlo in chat.');}const result=prepareFirebase(values);await writeFile(new URL('.bookflix-firebase-worker.local.json',root),JSON.stringify(result.worker,null,2)+'\n',{mode:0o600});await writeFile(new URL('public/firebase-config.json',root),JSON.stringify(result.config,null,2)+'\n');console.log('Configurazione pronta. Nessun account importato o cancellato, nessuna password generata o inviata.');console.log('Worker: .bookflix-firebase-worker.local.json');console.log('Sito: public/firebase-config.json (da includere nel commit).');console.log(result.worker.BOOKFLIX_OWNER_UID?'La raccolta precedente sarà riservata all’UID configurato.':'Tutti i nuovi utenti vedranno il benvenuto, senza accesso alla raccolta precedente.');}catch(e){console.error(e instanceof Error?e.message:'Preparazione non riuscita.');process.exitCode=1;}

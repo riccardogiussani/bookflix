@@ -1,0 +1,5 @@
+import {it,expect} from 'vitest';
+import {prepareFirebase} from './firebase-setup.mjs';
+const values={FIREBASE_PROJECT_ID:'bookflix-test',FIREBASE_API_KEY:'public-test-key',FIREBASE_AUTH_DOMAIN:'bookflix-test.firebaseapp.com',FIREBASE_APP_ID:'test-app'};
+it('prepara la sola configurazione senza leggere elenchi utenti o password',()=>{const result=prepareFirebase({...values,BOOKFLIX_PASSWORD_RICCARDO:'private-unused',BOOKFLIX_EMAIL_RICCARDO:'private@example.invalid'});expect(result.worker).toEqual({FIREBASE_PROJECT_ID:'bookflix-test',BOOKFLIX_OWNER_UID:'__BOOKFLIX_UNASSIGNED__'});expect(JSON.stringify(result)).not.toContain('private');expect(result).not.toHaveProperty('accounts');});
+it('configura un proprietario esplicito e rifiuta dati incompleti o UID malformati',()=>{expect(prepareFirebase({...values,BOOKFLIX_OWNER_UID:' uid-owner '}).worker.BOOKFLIX_OWNER_UID).toBe('uid-owner');expect(()=>prepareFirebase({...values,FIREBASE_PROJECT_ID:''})).toThrow('projectId');expect(()=>prepareFirebase({...values,BOOKFLIX_OWNER_UID:'not an uid'})).toThrow('UID');});

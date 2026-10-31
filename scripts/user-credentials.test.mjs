@@ -2,7 +2,7 @@ import {it,expect} from 'vitest';
 import {parseEnv} from 'node:util';
 import {credentials} from './user-credentials.mjs';
 import {initialUsers} from '../worker/users.mjs';
-import {authConfig,login,authenticate} from '../worker/auth.mjs';
+import {authConfig,login,authenticate} from '../worker/legacy-auth.mjs';
 const values=Object.fromEntries(initialUsers.map(u=>['BOOKFLIX_PASSWORD_'+u.username.toUpperCase(),'Manual-test-password-'+u.username]));
 it('usa le password del .env, conserva solo hash salati e mantiene stabili gli ID',async()=>{
  const {secrets}=credentials(undefined,values);const config=authConfig(secrets);expect(config.users).toHaveLength(7);expect(JSON.stringify(secrets)).not.toContain('Manual-test-password-');const first=config.users[0];const result=await login(new Request('https://test/auth/login',{method:'POST',body:JSON.stringify({username:first.username,password:values.BOOKFLIX_PASSWORD_RICCARDO,remember:true})}),secrets);expect(result.user.id).toBe(initialUsers[0].id);const again=credentials(secrets,values).secrets;expect(again).toEqual(secrets);

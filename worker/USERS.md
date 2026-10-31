@@ -1,3 +1,5 @@
+> **Autenticazione attuale:** Firebase, Worker 0.11.0 con registrazione autonoma e reset. Segui [FIREBASE.md](../FIREBASE.md). Le istruzioni di login con hash nei secret riportate sotto sono storiche e non vanno usate per il nuovo accesso.
+
 # Utenti personali Bookflix — Worker 0.9.0
 
 Utenti predisposti: **Riccardo, Corrado, Alessandra, Sara, Giulia, Dario, Alessia**. Gli username precompilati sono i nomi con iniziale maiuscola; il login ignora le maiuscole nello username, mentre la password è esatta. Non ci sono registrazione, email, recupero password o un nuovo database utenti.

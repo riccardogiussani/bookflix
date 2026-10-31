@@ -1,0 +1,9 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // The Worker uses IAM; browsers must never access these documents directly.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

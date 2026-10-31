@@ -1,95 +1,62 @@
-# Bookflix — libreria personale
+# Bookflix
 
-Applicazione in italiano con copertine, inserimento ISBN e consultazione a righe orizzontali. React, TypeScript e Vite su GitHub Pages; Cloudflare Worker per metadati e archivio Koofr/WebDAV; IndexedDB per la cache locale; backup ZIP aperto con immagini.
+Libreria personale e condivisa, con copertine, ricerca, ISBN, recensioni e voti personali. Interfaccia React/TypeScript su GitHub Pages, PWA installabile, Firebase Authentication e Cloudflare Worker per accesso ai dati e scraping. Catalogo centrale e librerie sono su Firestore Standard; Koofr conserva le copertine condivise. Amici e ruoli sono gestiti dal Worker.
 
-## Avvio e controlli
+## Avvio
 
-Con Node.js 22 o successivo, nella radice del progetto:
+Con Node.js 22 o successivo:
 
 ```powershell
 npm ci
 npm run dev
 ```
 
-`npm test` verifica archivio, backup, login, scanner, scraper e integrazione cloud con un WebDAV simulato. `npm run build` produce il sito statico in `dist`. I test non accedono al tuo account Koofr e non sostituiscono le prove del servizio distribuito.
+`npm test` esegue le verifiche automatiche. `npm run build` prepara `dist`, manifest, icone e service worker. Lo sviluppo non registra il service worker.
 
 ## Configurazione e pubblicazione
 
-- **Installazione Android e icone:** [PWA.md](PWA.md).
-- **Koofr:** segui [worker/KOOFR.md](worker/KOOFR.md). Contiene tutti i comandi, la struttura della raccolta e le verifiche da fare sui tuoi dispositivi.
-- **Login e scraper:** [worker/SETUP.md](worker/SETUP.md).
-- **Fonti metadati:** [worker/SOURCES.md](worker/SOURCES.md).
+- **Account, Google e reset:** [FIREBASE.md](FIREBASE.md), configurazione del login.
+- **Catalogo centrale, librerie e ruoli:** [FIRESTORE.md](FIRESTORE.md), setup attuale **0.12.0**.
+- **Installazione e icone:** [PWA.md](PWA.md).
+- **Koofr/WebDAV:** [worker/KOOFR.md](worker/KOOFR.md), per collegare il servizio di archiviazione. I passaggi sul login precedenti a Firebase sono superati da FIREBASE.md.
+- **Fonti ISBN:** [worker/SOURCES.md](worker/SOURCES.md).
 
-Configurazione dei secret e deploy del Worker sono da eseguire personalmente dall’utente. Pubblica prima il Worker 0.9.0, poi fai commit e push dell’app su `main`. GitHub Actions esegue test e build e pubblica su Pages. Non aggiungere credenziali al repository.
+Gli utenti ora si registrano con nome, email e password (con verifica dell’indirizzo), oppure usano Google. Non si importano i sette account precedenti e non si compilano elenchi di password. Nel `.env` servono i quattro valori pubblici dell’app Firebase e l’eventuale `BOOKFLIX_OWNER_UID`.
 
-Il Worker si pubblica dalla radice con:
+`node scripts/prepare-firebase.mjs` genera `public/firebase-config.json`, da pubblicare, e il JSON locale per configurare il Worker. Non esegue importazioni né richieste di rete. `.env` e `.bookflix-*.local.*` restano esclusi da Git.
+
+Configurazione Firebase, eventuale cancellazione degli account precedenti, caricamento dei secret e deploy vengono eseguiti personalmente dall’utente. Il Worker va pubblicato con:
 
 ```powershell
 npx wrangler deploy --config .\worker\wrangler.jsonc
 ```
 
-Non lanciare il deploy automatico Vite dalla radice senza questo file di configurazione. Il Worker importa anche `worker/koofr.mjs`.
+Poi commit e push su `main` pubblicano Pages tramite il workflow di test e build. La nuova app e il Worker 0.12.0 devono essere aggiornati insieme; completa prima il setup Firestore.
 
-## Dati e sincronizzazione
+## Raccolta conservata e nuovi account
 
-Catalogo e immagini vengono salvati in `.booflix/<uuid-raccolta>/` su Koofr. Il Worker utilizza `KOOFR_USERNAME` e `KOOFR_PASSWORD` come secret; `KOOFR_COLLECTION_ID` è l’identificativo pubblico della raccolta. Il login usa utenti personali (`AUTH_USERS_JSON`) e sessioni firmate (`AUTH_SESSION_SECRET`). La vecchia password condivisa `ACCESS_CODE` non viene più accettata; segui [worker/USERS.md](worker/USERS.md) per il `.env` precompilato e i comandi di configurazione.
+Dopo il login ogni utente può creare una libreria o aprire quelle condivise con lui. Da **Librerie e amici** invia richieste via email/codice e assegna ruoli owner, editor, reviewer o viewer. Owner ed editor hanno gli stessi poteri di gestione; deve restare almeno un owner.
 
-L’app aggiorna la raccolta all’accesso e con **Aggiorna raccolta**. Le scritture richiedono connessione e usano la versione WebDAV del catalogo per rilevare conflitti tra dispositivi. Non c’è sincronizzazione in tempo reale. La cache viene sostituita solo dopo il caricamento completo e la verifica delle copertine o dopo un salvataggio confermato.
+`BOOKFLIX_OWNER_UID` riguarda solo l’importazione esplicita della raccolta Koofr precedente: non assegna diritti sulle nuove librerie. La sorgente resta conservata.
 
-L’interfaccia della PWA viene conservata dopo il primo caricamento completo. Nell’app già aperta puoi consultare i libri caricati senza rete; serve Internet per il login e per verificare la sessione alla riapertura. La cache non è cifrata. Nessuna migrazione dell’archivio locale precedente: si usa una nuova cache senza cancellare il vecchio database.
+Il reset confermato elimina tutte le recensioni e valutazioni precedenti al nuovo sistema, preservando libri e immagini. Si applica alla cache aggiornata e, al primo caricamento autorizzato, a Koofr con controllo If-Match. Il catalogo conserva `identityEpoch: "firebase-self-service-v1"` per non ripetere il reset sui contributi nuovi. Il marcatore non deve essere rimosso.
 
-Le immagini cloud sono immutabili: eliminare un libro o sostituire una copertina può lasciare file non più referenziati. Non è ancora prevista una pulizia automatica. La struttura permette raccolte distinte, ma in questa fase l’interfaccia apre la raccolta configurata nel Worker.
+La cache locale resta non cifrata. Login e scritture richiedono rete. La PWA conserva l’interfaccia; una raccolta già aperta è consultabile dalla copia locale. Il rinnovo del token dello stesso utente non deve chiudere i moduli aperti.
 
-## Backup aperto
+## Libri, recensioni e voti
 
-Esporta/importa ZIP con `library.json` (`format: "scaffale"`, `version: 1`, `exportedAt`, `books`) e immagini in `covers/<id>`. Password e impostazioni di accesso non entrano nel backup. L’importazione sostituisce la raccolta Koofr dopo conferma; il file viene prima validato in un archivio temporaneo. Un backup invalido non cancella la raccolta.
+Aggiungi libro apre la fotocamera a tutto schermo. Inserimento manuale apre il modulo; il pulsante ↻ accanto a ISBN avvia il recupero da Amazon e dalle altre fonti supportate. Il modulo permette di correggere dati e copertina prima del salvataggio e impedisce duplicati ISBN. Posizione è facoltativa e usa le opzioni presenti nel menu.
 
-Limiti: ZIP 200 MB, ogni immagine 10 MB, 20.000 libri; catalogo cloud JSON 16 MiB. Restano applicabili le quote dei piani gratuiti Koofr e Cloudflare.
+La home mostra righe di copertine per genere e aggiunti di recente. La ricerca immediata trova metadati, posizione e recensioni, senza nuove richieste di rete.
 
-## Verifica funzionale
+Nel dettaglio le recensioni appaiono come commenti firmati. Ogni utente ha un solo voto da 1 a 5, modificabile o rimovibile. La scheda e le copertine mostrano media e numero dei votanti. Il Worker verifica l’UID e il ruolo. Voti e recensioni sono separati per libreria. Rimuovere un libro scollega l’edizione, preservando catalogo centrale, immagini e contributi per un eventuale reinserimento.
 
-1. Su telefono HTTPS, Aggiungi libro deve aprire la fotocamera a tutto schermo con guida ISBN e pulsante Inserimento manuale. Un codice valido avvia subito il recupero e apre il modulo compilato. Prova anche il permesso negato e la chiusura della fotocamera. Le prove fisiche le esegue l’utente.
-2. Inserisci un libro con autori e generi separati da punto e virgola, immagine, posizione e valutazione; riaprilo da un altro dispositivo dopo Aggiorna raccolta.
-3. Verifica modifica, eliminazione, duplicati ISBN, esportazione e ripristino ZIP.
-4. Esegui le prove di conflitto e rete assente in [worker/KOOFR.md](worker/KOOFR.md).
-5. La ricerca dei metadati prova Amazon per primo e poi le altre fonti. Puoi incollare un link, correggere l’anteprima o compilare tutto manualmente se i portali non rispondono.
+## Backup e conflitti
 
-La ricerca nel catalogo è disponibile; restano da completare i filtri per metadato e ulteriori ottimizzazioni delle righe di consultazione. Nessun deploy né accesso al tuo account Koofr è stato eseguito dall’agente.
+Il backup ZIP aperto conserva `library.json` e immagini in `covers/`. Il nome pubblico è Bookflix; il formato storico `scaffale`, versione 1, resta compatibile. I nuovi backup includono `identityEpoch` e mantengono i nuovi contributi. Nei vecchi backup i contributi precedenti vengono scartati all’importazione, conservando libri e copertine.
 
-## Ricerca nel catalogo
+L’importazione aggiunge/aggiorna i libri senza cancellare gli altri; ripristina solo i contributi del tuo UID, preservando quelli altrui. Scrive un libro alla volta e segnala eventuali interruzioni. Limiti: ZIP 200 MB, singola immagine 10 MB, 20.000 libri per libreria. Le versioni Firestore impediscono di sovrascrivere modifiche concorrenti. Le immagini identiche condividono un percorso basato su SHA-256; non c’è pulizia automatica dei file non referenziati.
 
-Il campo “Cerca nella tua libreria” trova subito i libri mentre scrivi, senza richieste al Worker o a Koofr. Cerca in titolo, sottotitolo, autori, editore, generi, ISBN, anno, trama, lingua, posizione e recensioni (testo e autore); ignora maiuscole e accenti. Più parole devono essere tutte presenti, anche in campi diversi. Gli ISBN completi possono essere scritti con trattini, in formato ISBN-10 o ISBN-13.
+## Verifiche
 
-I risultati mostrano copertine, titolo e autore; selezionandone uno si apre il dettaglio abituale. Per cataloghi grandi vengono mostrati 60 risultati per volta, con il pulsante Mostra altri. La ricerca funziona anche nella copia locale già caricata. Cancella il testo, premi Escape nel campo o usa il pulsante × per tornare alle righe della home.
-
-Per verificare: cerca un titolo parziale, un autore con accenti, un genere e un ISBN; combina autore e anno, prova una ricerca senza risultati, apri un libro e cancella il testo per tornare alla home. Prova anche dal telefono. Basta commit e push dell’app: nessun aggiornamento del Worker è richiesto per questa funzione.
-
-Il campo facoltativo **Posizione** indica dove si trova il libro fisico. Nel modulo si può scegliere solo **Soggiorno**, **Taverna** o **Camere**, oppure lasciarlo vuoto e compare nel dettaglio e nella ricerca; lo scraper non lo propone. È incluso nel catalogo Koofr e nei backup ZIP. I libri e i backup precedenti rimangono compatibili e mostrano la posizione vuota.
-
-Eventuali posizioni libere salvate con la versione precedente restano leggibili: nel modulo appaiono come “Da aggiornare” e per salvare il libro occorre selezionare una delle tre posizioni o Non indicata.
-
-Nel modulo di aggiunta manuale la ricerca automatica si avvia dal pulsante ↻ accanto all’unico campo ISBN. Il pulsante mostra l’attività durante la ricerca; il salvataggio attende la fine del recupero. Invio nel campo ISBN avvia la stessa ricerca. Il link diretto a una scheda resta disponibile nella sezione facoltativa richiudibile sotto il campo. Non viene più mostrato il riquadro iniziale “Aggiungi tramite ISBN”.
-
-## Recensioni
-
-Nel dettaglio del libro le recensioni appaiono come commenti con autore, data e testo. Il modulo firma automaticamente con lo username corrente, ricordato dal login. Con lo stesso ID utente puoi modificare ed eliminare i tuoi commenti; il Worker controlla la proprietà anche sul catalogo completo. La valutazione a stelle è personale: ogni utente ha un solo voto per libro e la scheda mostra la media. Sono configurati i sette utenti personali, senza registrazioni o email. Ognuno accede con la propria password e la sessione ricordata conserva un token, senza memorizzare la password nel browser.
-
-Recensioni e autori sono conservati su Koofr, inclusi nel backup ZIP e ricercabili nel catalogo. I conflitti non cancellano il testo che stai scrivendo: aggiorna la raccolta e riprova.
-
-Le vecchie note vengono eliminate, senza convertirle in recensioni. Al primo avvio aggiornato viene ripulita la cache; al primo caricamento online viene ripulito anche il catalogo Koofr con controllo della versione. Se il salvataggio di pulizia fallisce, l’app segnala l’errore e riprova al successivo aggiornamento. Lo stato di lettura è rimosso dal modulo, dalle copertine, dalle righe della home e dai dati. I vecchi ZIP restano importabili: note e stato vengono scartati. I file di backup già scaricati non vengono modificati.
-
-Verifica: apri un libro e pubblica una recensione; controlla firma e data, modifica il testo, riapri da un altro dispositivo, esporta/importa il backup e prova l’eliminazione. Accedendo con un altro utente puoi leggere gli altri commenti ma non modificarli o eliminarli. Per il passaggio agli utenti personali occorre configurare i nuovi secret, pubblicare il Worker 0.9.0 e poi aggiornare Pages: [guida utenti](worker/USERS.md).
-
-## Configurare le password dal .env
-
-Apri il `.env` nella radice, con gli username di Riccardo, Corrado, Alessandra, Sara, Giulia, Dario e Alessia già compilati, e inserisci personalmente le password vuote (almeno 12 caratteri). Il file non viene versionato. Poi esegui `node scripts/configure-users.mjs` per preparare gli hash, e segui [worker/USERS.md](worker/USERS.md) per caricarli e pubblicare il Worker. Lo script non genera password utente e non le stampa. Solo `.env.example`, con valori vuoti, deve entrare nel repository.
-
-## Valutazioni personali
-
-Ogni utente può dare un solo voto intero da 1 a 5 a ciascun libro, modificarlo o rimuoverlo dal dettaglio in “La tua valutazione”, anche senza recensione. La scheda e le copertine del catalogo mostrano la media dei voti personali e il numero di valutazioni; se non ci sono voti viene mostrato “Nessuna valutazione”. I voti altrui non sono modificabili, neppure tramite invio dell’intero catalogo, eliminazione del libro o importazione di un backup. Questo segue la stessa protezione delle recensioni.
-
-Le vecchie valutazioni condivise (`rating` ed eventuale `legacyRating`) vengono eliminate dalla cache, dai backup importati e da Koofr al primo caricamento aggiornato, senza attribuirle ad alcun utente. La pulizia cloud controlla la versione del catalogo. I voti personali sono inclusi nei backup ZIP e conservano gli ID degli autori.
-
-Per attivare pubblica il Worker 0.9.0 e poi fai commit e push dell’app. Non serve rigenerare o ricaricare password e secret. Se il Worker non è aggiornato l’app segnala l’aggiornamento richiesto e impedisce le scritture che richiedono le nuove protezioni.
-
-Per verificare: come Riccardo dai 5 a un libro; come Sara dai 2; dopo Aggiorna raccolta deve comparire 3,5/5 con 2 valutazioni. Modifica o rimuovi il voto di Sara e verifica la nuova media. Controlla anche che esportazione e reimportazione conservino i voti personali. I backup non possono essere usati per cancellare o introdurre voti a nome di altri utenti.
+I test usano token firmati, utenti, OAuth, Firestore REST e WebDAV simulati. Non usano credenziali reali. Le prove su Firebase, Koofr, fotocamera e installazione Android sono da eseguire dall’utente dopo il proprio deploy, seguendo le guide.

@@ -1,3 +1,7 @@
+> **Catalogo e account attuali:** segui [../FIRESTORE.md](../FIRESTORE.md) (Worker 0.12.0) e [../FIREBASE.md](../FIREBASE.md).
+
+> **Autenticazione attuale:** Firebase, Worker 0.11.0 con registrazione autonoma e reset. Segui [FIREBASE.md](../FIREBASE.md). Le istruzioni di login con hash nei secret riportate sotto sono storiche e non vanno usate per il nuovo accesso.
+
 # Worker Bookflix 0.9.0 — utenti personali e Koofr
 
 Per configurare i sette utenti e le loro password segui **[USERS.md](USERS.md)**. Il `.env` precompilato è nella radice del repository; le password vengono scelte dall’utente. Lo script locale prepara hash e chiave di sessione senza pubblicare nulla. Secret e deploy vengono gestiti personalmente dall’utente.

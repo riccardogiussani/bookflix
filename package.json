@@ -12,6 +12,8 @@
     "@zxing/browser": "^0.2.1",
     "@zxing/library": "^0.23.0",
     "dexie": "^4.0.11",
+    "firebase": "^13.1.0",
+    "jose": "^6.2.14",
     "jszip": "^3.10.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
@@ -25,5 +27,8 @@
     "vite": "^6.3.0",
     "vitest": "^5.0.5",
     "wrangler": "^4.156.0"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "^1.13.6"
   }
 }
