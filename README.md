@@ -1,4 +1,4 @@
-# Bookflix / Scaffale — libreria personale
+# Bookflix — libreria personale
 
 Applicazione in italiano con copertine, inserimento ISBN e consultazione a righe orizzontali. React, TypeScript e Vite su GitHub Pages; Cloudflare Worker per metadati e archivio Koofr/WebDAV; IndexedDB per la cache locale; backup ZIP aperto con immagini.
 
@@ -15,6 +15,7 @@ npm run dev
 
 ## Configurazione e pubblicazione
 
+- **Installazione Android e icone:** [PWA.md](PWA.md).
 - **Koofr:** segui [worker/KOOFR.md](worker/KOOFR.md). Contiene tutti i comandi, la struttura della raccolta e le verifiche da fare sui tuoi dispositivi.
 - **Login e scraper:** [worker/SETUP.md](worker/SETUP.md).
 - **Fonti metadati:** [worker/SOURCES.md](worker/SOURCES.md).
@@ -35,7 +36,7 @@ Catalogo e immagini vengono salvati in `.booflix/<uuid-raccolta>/` su Koofr. Il 
 
 L’app aggiorna la raccolta all’accesso e con **Aggiorna raccolta**. Le scritture richiedono connessione e usano la versione WebDAV del catalogo per rilevare conflitti tra dispositivi. Non c’è sincronizzazione in tempo reale. La cache viene sostituita solo dopo il caricamento completo e la verifica delle copertine o dopo un salvataggio confermato.
 
-Nell’app già aperta puoi consultare i dati caricati anche senza rete; serve Internet per un nuovo login o per ricaricare il sito. La cache non è cifrata. Non è ancora disponibile una PWA offline. Nessuna migrazione dell’archivio locale precedente: si usa una nuova cache senza cancellare il vecchio database.
+L’interfaccia della PWA viene conservata dopo il primo caricamento completo. Nell’app già aperta puoi consultare i libri caricati senza rete; serve Internet per il login e per verificare la sessione alla riapertura. La cache non è cifrata. Nessuna migrazione dell’archivio locale precedente: si usa una nuova cache senza cancellare il vecchio database.
 
 Le immagini cloud sono immutabili: eliminare un libro o sostituire una copertina può lasciare file non più referenziati. Non è ancora prevista una pulizia automatica. La struttura permette raccolte distinte, ma in questa fase l’interfaccia apre la raccolta configurata nel Worker.
 
@@ -53,7 +54,7 @@ Limiti: ZIP 200 MB, ogni immagine 10 MB, 20.000 libri; catalogo cloud JSON 16 Mi
 4. Esegui le prove di conflitto e rete assente in [worker/KOOFR.md](worker/KOOFR.md).
 5. La ricerca dei metadati prova Amazon per primo e poi le altre fonti. Puoi incollare un link, correggere l’anteprima o compilare tutto manualmente se i portali non rispondono.
 
-La ricerca nel catalogo è disponibile; restano da completare i filtri per metadato, ulteriori ottimizzazioni delle righe di consultazione e PWA. Nessun deploy né accesso al tuo account Koofr è stato eseguito dall’agente.
+La ricerca nel catalogo è disponibile; restano da completare i filtri per metadato e ulteriori ottimizzazioni delle righe di consultazione. Nessun deploy né accesso al tuo account Koofr è stato eseguito dall’agente.
 
 ## Ricerca nel catalogo
 

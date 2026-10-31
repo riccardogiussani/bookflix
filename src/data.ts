@@ -9,7 +9,7 @@ export type Book = {
  isbn:string; ratings:Rating[]; reviews:Review[]; location:string;
  createdAt:string; updatedAt:string; cover?:Blob;
 };
-export const locations=['Soggiorno','Taverna','Camere'] as const;
+export const locations=['Soggiorno','Taverna','Camere','Casa Sara e Dario','Casa Giulia'] as const;
 export function checkLocation(location:string|undefined){if(location&&!locations.some(value=>value===location))throw Error('Scegli una posizione tra Soggiorno, Taverna e Camere, oppure lasciala vuota.');}
 export function newId():string {
  if(typeof crypto.randomUUID==='function')return crypto.randomUUID();
