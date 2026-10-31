@@ -4,16 +4,18 @@ import JSZip from 'jszip';
 export type Book = {
  id:string; title:string; subtitle:string; authors:string[]; publisher:string;
  year:string; pages:number|null; language:string; genres:string[]; description:string;
- isbn:string; status:'Da leggere'|'In lettura'|'Letto'; rating:number|null; notes:string;
+ isbn:string; status:'Da leggere'|'In lettura'|'Letto'; rating:number|null; notes:string; location:string;
  createdAt:string; updatedAt:string; cover?:Blob;
 };
 export const statuses = ['Da leggere','In lettura','Letto'] as const;
+export const locations=['Soggiorno','Taverna','Camere'] as const;
+export function checkLocation(location:string|undefined){if(location&&!locations.some(value=>value===location))throw Error('Scegli una posizione tra Soggiorno, Taverna e Camere, oppure lasciala vuota.');}
 export function newId():string {
  if(typeof crypto.randomUUID==='function')return crypto.randomUUID();
  const bytes=crypto.getRandomValues(new Uint8Array(16));bytes[6]=(bytes[6]&15)|64;bytes[8]=(bytes[8]&63)|128;
  const hex=[...bytes].map(b=>b.toString(16).padStart(2,'0')).join('');return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
 }
-export function blankBook():Book {const now=new Date().toISOString();return {id:newId(),title:'',subtitle:'',authors:[],publisher:'',year:'',pages:null,language:'',genres:[],description:'',isbn:'',status:'Da leggere',rating:null,notes:'',createdAt:now,updatedAt:now};}
+export function blankBook():Book {const now=new Date().toISOString();return {id:newId(),title:'',subtitle:'',authors:[],publisher:'',year:'',pages:null,language:'',genres:[],description:'',isbn:'',status:'Da leggere',rating:null,notes:'',location:'',createdAt:now,updatedAt:now};}
 export function normalizeISBN(raw:string):string {
  const s=raw.replace(/[\s-]/g,'').toUpperCase(); if(!s)return '';
  if(s.length===10 && /^\d{9}[\dX]$/.test(s)){
@@ -29,12 +31,13 @@ function record(b:Book){const {isbnKey,...clean}=b as Book & {isbnKey?:string};r
 export function validate(b:Book):Book {
  if(!b||typeof b.id!=='string'||!b.id||typeof b.title!=='string'||!b.title.trim())throw Error('Ogni libro deve avere un titolo e un identificativo.');
  for(const k of ['subtitle','publisher','year','language','description','isbn','notes','createdAt','updatedAt'] as const)if(typeof b[k]!=='string')throw Error('Formato dei dati non valido.');
+ if(b.location!==undefined&&typeof b.location!=='string')throw Error('La posizione deve essere un testo.');
  for(const arr of [b.authors,b.genres])if(!Array.isArray(arr)||arr.some(v=>typeof v!=='string'))throw Error('Autori o generi non validi.');
  if(!statuses.includes(b.status)||b.rating!==null&&(!Number.isInteger(b.rating)||b.rating<1||b.rating>5)||b.pages!==null&&(!Number.isInteger(b.pages)||b.pages<1))throw Error('Stato, valutazione o numero di pagine non valido.');
  if(!Number.isFinite(Date.parse(b.createdAt))||!Number.isFinite(Date.parse(b.updatedAt)))throw Error('Date non valide.');
- return {...b,title:b.title.trim(),isbn:normalizeISBN(b.isbn),genres:[...new Set(b.genres.map(s=>s.trim()).filter(Boolean))],authors:b.authors.map(s=>s.trim()).filter(Boolean)};
+ return {...b,location:b.location??'',title:b.title.trim(),isbn:normalizeISBN(b.isbn),genres:[...new Set(b.genres.map(s=>s.trim()).filter(Boolean))],authors:b.authors.map(s=>s.trim()).filter(Boolean)};
 }
-export async function saveBook(input:Book,database=db){const b=validate({...input,updatedAt:new Date().toISOString()});await database.transaction('rw',database.books,async()=>{
+export async function saveBook(input:Book,database=db){const b=validate({...input,updatedAt:new Date().toISOString()});checkLocation(b.location);await database.transaction('rw',database.books,async()=>{
  if(b.isbn){const existing=await database.books.where('isbnKey').equals(b.isbn).first();if(existing&&existing.id!==b.id)throw Error('Questo ISBN è già presente in libreria.');}
  await database.books.put(record(b));});}
 export async function exportLibrary(database=db){const zip=new JSZip();const books=await database.books.toArray();const rows=books.map(b=>{

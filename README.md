@@ -53,4 +53,18 @@ Limiti: ZIP 200 MB, ogni immagine 10 MB, 20.000 libri; catalogo cloud JSON 16 Mi
 4. Esegui le prove di conflitto e rete assente in [worker/KOOFR.md](worker/KOOFR.md).
 5. La ricerca dei metadati prova Amazon per primo e poi le altre fonti. Puoi incollare un link, correggere l’anteprima o compilare tutto manualmente se i portali non rispondono.
 
-Restano da completare ricerca/filtri della libreria, ulteriori ottimizzazioni delle righe di consultazione e PWA. Nessun deploy né accesso al tuo account Koofr è stato eseguito dall’agente.
+La ricerca nel catalogo è disponibile; restano da completare i filtri per metadato, ulteriori ottimizzazioni delle righe di consultazione e PWA. Nessun deploy né accesso al tuo account Koofr è stato eseguito dall’agente.
+
+## Ricerca nel catalogo
+
+Il campo “Cerca nella tua libreria” trova subito i libri mentre scrivi, senza richieste al Worker o a Koofr. Cerca in titolo, sottotitolo, autori, editore, generi, ISBN, anno, trama, lingua, stato, posizione e note; ignora maiuscole e accenti. Più parole devono essere tutte presenti, anche in campi diversi. Gli ISBN completi possono essere scritti con trattini, in formato ISBN-10 o ISBN-13.
+
+I risultati mostrano copertine, titolo, autore e stato; selezionandone uno si apre il dettaglio abituale. Per cataloghi grandi vengono mostrati 60 risultati per volta, con il pulsante Mostra altri. La ricerca funziona anche nella copia locale già caricata. Cancella il testo, premi Escape nel campo o usa il pulsante × per tornare alle righe della home.
+
+Per verificare: cerca un titolo parziale, un autore con accenti, un genere e un ISBN; combina autore e anno, prova una ricerca senza risultati, apri un libro e cancella il testo per tornare alla home. Prova anche dal telefono. Basta commit e push dell’app: nessun aggiornamento del Worker è richiesto per questa funzione.
+
+Il campo facoltativo **Posizione** indica dove si trova il libro fisico. Nel modulo si può scegliere solo **Soggiorno**, **Taverna** o **Camere**, oppure lasciarlo vuoto e compare nel dettaglio e nella ricerca; lo scraper non lo propone. È incluso nel catalogo Koofr e nei backup ZIP. I libri e i backup precedenti rimangono compatibili e mostrano la posizione vuota.
+
+Eventuali posizioni libere salvate con la versione precedente restano leggibili: nel modulo appaiono come “Da aggiornare” e per salvare il libro occorre selezionare una delle tre posizioni o Non indicata.
+
+Nel modulo di aggiunta manuale la ricerca automatica si avvia dal pulsante ↻ accanto all’unico campo ISBN. Il pulsante mostra l’attività durante la ricerca; il salvataggio attende la fine del recupero. Invio nel campo ISBN avvia la stessa ricerca. Il link diretto a una scheda resta disponibile nella sezione facoltativa richiudibile sotto il campo. Non viene più mostrato il riquadro iniziale “Aggiungi tramite ISBN”.

@@ -29,10 +29,10 @@ beforeEach(async()=>{
 afterEach(()=>vi.unstubAllGlobals());
 it('creates the cloud collection, uploads a cover, reloads it on a fresh device and deletes the book',async()=>{
  expect((await openCloud(code)).books).toEqual([]);
- const input={...blankBook(),title:'Libro condiviso',isbn:'9780306406157',cover:new Blob(['cover'],{type:'image/png'})};
+ const input={...blankBook(),title:'Libro condiviso',location:'Soggiorno',isbn:'9780306406157',cover:new Blob(['cover'],{type:'image/png'})};
  const saved=await cloudSave(code,input);expect(saved).toHaveLength(1);expect(files.has(root+'/collection.json')).toBe(true);
  const catalog=JSON.parse(new TextDecoder().decode(files.get(root+'/books.json')!.body));expect(catalog.books[0].coverPath).toMatch(/\.png$/);expect(catalog.books[0].cover).toBeUndefined();
- await db.books.clear();await db.sync.clear();const loaded=await refreshCloud(code);expect(loaded[0].title).toBe(input.title);expect(await loaded[0].cover?.text()).toBe('cover');
+ await db.books.clear();await db.sync.clear();const loaded=await refreshCloud(code);expect(loaded[0].title).toBe(input.title);expect(loaded[0].location).toBe(input.location);expect(await loaded[0].cover?.text()).toBe('cover');
  const n=calls.filter(c=>c.method==='PUT'&&c.url.includes('/covers/')).length;await cloudSave(code,{...loaded[0],notes:'Nuova nota'});expect(calls.filter(c=>c.method==='PUT'&&c.url.includes('/covers/'))).toHaveLength(n);
  const latest=(await db.books.toArray())[0];await cloudDelete(code,latest.id,latest.updatedAt);expect((await refreshCloud(code))).toEqual([]);
 });
@@ -75,3 +75,9 @@ it('does not resurrect a book deleted remotely after the user refreshes',async()
  await openCloud(code);const book=(await cloudSave(code,{...blankBook(),title:'Eliminato'}))[0];const server=files.get(root+'/books.json')!;server.body=new TextEncoder().encode(JSON.stringify({format:'bookflix-cloud',version:1,books:[]}));server.etag='"deleted"';await refreshCloud(code);
  await expect(cloudSave(code,{...book,notes:'Vecchia modifica'},true)).rejects.toThrow('eliminato');expect(await db.books.count()).toBe(0);
 });
+
+it('normalizza i cataloghi cloud precedenti senza posizione e non mostra banner di successo',async()=>{
+ expect((await openCloud(code)).message).toBe('');const book=(await cloudSave(code,{...blankBook(),title:'Precedente'}))[0];const stored=files.get(root+'/books.json')!;const catalog=JSON.parse(new TextDecoder().decode(stored.body));delete catalog.books[0].location;stored.body=new TextEncoder().encode(JSON.stringify(catalog));stored.etag='"legacy"';const loaded=await refreshCloud(code);expect(loaded[0].id).toBe(book.id);expect(loaded[0].location).toBe('');
+});
+
+it('rifiuta posizioni non consentite prima di scrivere su Koofr',async()=>{await openCloud(code);await expect(cloudSave(code,{...blankBook(),title:'Posizione',location:'Garage'})).rejects.toThrow('Scegli una posizione');expect(files.has(root+'/books.json')).toBe(false);});
