@@ -1,0 +1,11 @@
+import {afterEach,expect,it,vi} from 'vitest';
+import {renderToString} from 'react-dom/server';
+import {LoginGate} from './LoginGate';
+import {checkAccess} from './login';
+import {WORKER_URL} from './isbn';
+afterEach(()=>vi.unstubAllGlobals());
+it('non mostra e non monta la libreria prima della verifica',()=>{const library=vi.fn(()=> <p>Catalogo riservato</p>);const html=renderToString(<LoginGate>{library}</LoginGate>);expect(html).toContain('Username');expect(html).toContain('Password');expect(html).not.toContain('Catalogo riservato');expect(library).not.toHaveBeenCalled();});
+it('verifica solo la password via header su un endpoint senza scraping',async()=>{const fetch=vi.fn().mockResolvedValue(new Response(JSON.stringify({authenticated:true})));vi.stubGlobal('fetch',fetch);expect(await checkAccess('test-only-password',new AbortController().signal)).toBe('test-only-password');expect(fetch.mock.calls[0][0]).toBe(`${WORKER_URL}/auth/check`);expect(fetch.mock.calls[0][1].headers).toEqual({Authorization:'Bearer test-only-password'});expect(fetch.mock.calls[0][1].cache).toBe('no-store');});
+it('non accetta il solo health pubblico come conferma di accesso',async()=>{vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response(JSON.stringify({ok:true}))));await expect(checkAccess('test-only-password',new AbortController().signal)).rejects.toThrow('non ha confermato');});
+it.each([[401,'Password non corretta'],[404,'aggiornato'],[429,'Troppi tentativi'],[503,'non è ancora configurata']])('gestisce HTTP %i senza aprire la libreria',async(status,message)=>{vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response('{}',{status})));await expect(checkAccess('test-only-password',new AbortController().signal)).rejects.toThrow(message);});
+it('gestisce la rete assente e consente di riprovare',async()=>{vi.stubGlobal('fetch',vi.fn().mockRejectedValue(new TypeError('offline')));await expect(checkAccess('test-only-password',new AbortController().signal)).rejects.toThrow('connessione');});

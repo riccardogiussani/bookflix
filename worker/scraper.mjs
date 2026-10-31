@@ -63,17 +63,27 @@ async function discover(isbn){
  const links=[...html.matchAll(/href\s*=\s*["']([^"']*\/products\/[^"']+)["']/gi)].map(m=>m[1]).filter(v=>v.includes(isbn)).map(v=>{try{return sourceURL(new URL(v,'https://giuntialpunto.it').href);}catch{return '';}}).filter(Boolean);
  return [...new Set(links)].slice(0,2);
 }
+async function authorized(request,secret){
+ const supplied=request.headers.get('Authorization')||'';
+ if(!supplied.startsWith('Bearer ')||supplied.length>520)return false;
+ const encoder=new TextEncoder();
+ const [expected,actual]=await Promise.all([secret,supplied.slice(7)].map(value=>crypto.subtle.digest('SHA-256',encoder.encode(value))));
+ const a=new Uint8Array(expected),b=new Uint8Array(actual);let diff=0;for(let i=0;i<a.length;i++)diff|=a[i]^b[i];return diff===0;
+}
 export default {async fetch(request,env={},context={waitUntil:()=>{}}){
  const origin=request.headers.get('Origin');const allowed=(env.ALLOWED_ORIGINS||DEFAULT_ORIGIN).split(',').map(s=>s.trim());
- const headers={'Content-Type':'application/json; charset=utf-8',Vary:'Origin','X-Content-Type-Options':'nosniff'};
- if(origin&&allowed.includes(origin))Object.assign(headers,{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Methods':'GET, OPTIONS'});
+ const headers={'Content-Type':'application/json; charset=utf-8',Vary:'Origin','X-Content-Type-Options':'nosniff','Cache-Control':'no-store'};
+ if(origin&&allowed.includes(origin))Object.assign(headers,{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Methods':'GET, OPTIONS','Access-Control-Allow-Headers':'Authorization'});
  const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers});
  if(origin&&!allowed.includes(origin))return json({error:'Origine non autorizzata.'},403);
  if(request.method==='OPTIONS')return new Response(null,{status:204,headers});
  if(request.method!=='GET')return json({error:'Metodo non consentito.'},405);
- const url=new URL(request.url);if(url.pathname==='/health')return json({ok:true,version:'0.3.1',sources:['Giunti al Punto (ricerca ISBN)','IBS (link scheda)']});
- if(!['/lookup','/cover'].includes(url.pathname))return json({error:'Percorso non trovato.'},404);
+ const url=new URL(request.url);if(url.pathname==='/health')return json({ok:true,version:'0.5.0',authentication:{required:true,configured:typeof env.ACCESS_CODE==='string'&&!!env.ACCESS_CODE},sources:['Giunti al Punto (ricerca ISBN)','IBS (link scheda)']});
+ if(!['/lookup','/cover','/auth/check'].includes(url.pathname))return json({error:'Percorso non trovato.'},404);
  const ip=request.headers.get('CF-Connecting-IP')||'local';const now=Date.now();if(windows.size>2000)for(const [k,v] of windows)if(v.until<now)windows.delete(k);const window=windows.get(ip)||{until:now+60000,count:0};if(window.until<now){window.until=now+60000;window.count=0;}window.count++;windows.set(ip,window);if(window.count>12)return json({error:'Troppe richieste. Attendi un minuto.'},429);
+ if(typeof env.ACCESS_CODE!=='string'||!env.ACCESS_CODE)return json({error:'Il servizio non ha ancora un codice di accesso configurato.'},503);
+ if(!await authorized(request,env.ACCESS_CODE))return json({error:'Codice di accesso mancante o non valido.'},401);
+ if(url.pathname==='/auth/check')return json({authenticated:true});
  try{
   const isbn=isbn13(url.searchParams.get('isbn'));const supplied=url.searchParams.get('url');let links=supplied?[sourceURL(supplied)]:await discover(isbn);
   if(url.pathname==='/cover'){

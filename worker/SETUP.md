@@ -1,71 +1,71 @@
-# Setup personale del Worker Bookflix
+# Worker Bookflix 0.5.0 — attivazione del codice di accesso
 
-Questa guida è per il setup che eseguirai tu. Nessun Worker o risorsa Cloudflare è stato creato o pubblicato dall'agente.
+Il sito resta su GitHub Pages. Il suo codice contiene l’URL pubblico `https://bookflix-scraper.riciriccio.workers.dev`, ma non contiene il codice di accesso. Ricerca e download delle copertine richiedono entrambi l’autorizzazione. Senza il secret il servizio resta chiuso (HTTP 503), senza codice corretto restituisce HTTP 401. `/health` resta pubblico.
 
-## 1. Crea e pubblica il Worker dal tuo computer
+Setup e deploy sono da eseguire personalmente dall’utente. L’agente ha modificato e verificato i file locali senza pubblicare il Worker e senza impostare credenziali Cloudflare.
 
-Questo percorso usa gli strumenti ufficiali Cloudflare e non dipende dalle etichette della dashboard. Node.js è lo stesso prerequisito già usato per avviare Bookflix.
+## 1. Imposta il codice su Cloudflare
 
-1. Accedi a https://dash.cloudflare.com/ con il tuo account. Se serve un account nuovo, completa tu la registrazione. Mantieni il piano **Workers Free**: non servono database, R2, dominio personale o servizi a pagamento.
-2. Estrai lo ZIP del progetto e apri un terminale **dentro la cartella `worker`**, quella che contiene `scraper.mjs` e `wrangler.jsonc`.
-3. Esegui:
+Dal terminale nella **radice del tuo repository**, `C:\Users\ricca\Repo\web-apps\bookflix`, esegui:
 
-```
-npx wrangler login
+```powershell
+npx wrangler secret put ACCESS_CODE --config .\worker\wrangler.jsonc
 ```
 
-4. Se viene chiesto di scaricare Wrangler dal registro npm, conferma. Si apre il browser: accedi e autorizza tu lo strumento ufficiale Cloudflare. Se hai più account, scegli quello da usare.
-5. Tornato al terminale, esegui:
+Quando richiesto, inserisci personalmente un codice casuale lungo (consigliati almeno 24 caratteri, lettere, cifre e simboli ASCII senza spazi), generato e conservato nel tuo gestore di password. È il codice che inserirai nell’app. Il terminale ne gestisce l’inserimento: **non aggiungerlo alla riga del comando, non inviarlo in chat e non salvarlo in `wrangler.jsonc`, `.env`, GitHub Secrets della build o nel sorgente**.
 
-```
-npx wrangler deploy
-```
+Questo comando imposta un secret nel Worker `bookflix-scraper`; non aggiorna il sito su GitHub Pages. Se Wrangler chiede di autenticarti, esegui tu `npx wrangler login`.
 
-6. Questo comando crea/pubblica **soltanto il Worker**, con il nome `bookflix-scraper`. Non pubblica il sito GitHub Pages. Alla prima pubblicazione Cloudflare può chiederti di scegliere un sottodominio workers.dev: completalo tu. Il terminale mostra l'indirizzo finale, da conservare.
+Documentazione ufficiale: https://developers.cloudflare.com/workers/configuration/secrets/
 
-Non inserire password o token nel codice o nella chat. Per successivi aggiornamenti dello scraper basterà ripetere `npx wrangler deploy` nella cartella `worker`.
+## 2. Pubblica il Worker aggiornato
 
-Guida ufficiale: https://developers.cloudflare.com/workers/get-started/guide/
+Sempre dalla radice del repository:
 
-Se preferisci fare tutto dalla dashboard: Workers & Pages → Create application, scegli il modello di Worker minimo disponibile e sostituisci il file principale con `scraper.mjs`, poi pubblica. La dashboard può proporre anche l'importazione da Git: in quel caso seleziona la cartella `worker` come directory del progetto. Per il primo setup è più ripetibile il percorso da terminale sopra.
-
-## 2. Verifica il servizio
-
-Cloudflare mostra un indirizzo simile a `https://bookflix-scraper.TUO-SOTTODOMINIO.workers.dev`.
-
-Apri quell'indirizzo aggiungendo `/health`. Devi vedere un oggetto con `"ok": true` e la versione `0.3.0`. La radice da sola risponde con percorso non trovato: è normale.
-
-Per provare un libro da IBS, aggiungi al tuo indirizzo:
-
-```
-/lookup?isbn=9788834603000&url=https%3A%2F%2Fwww.ibs.it%2Fnome-della-rosa-ediz-illustrata-libro-umberto-eco%2Fe%2F9788834603000
+```powershell
+npx wrangler deploy --config .\worker\wrangler.jsonc
 ```
 
-La risposta deve contenere `candidates` con la scheda corrispondente, oppure `warnings` con un errore comprensibile. Un 200 da solo non prova che il libro sia stato trovato: controlla che `candidates` non sia vuoto.
+Non avviare `wrangler deploy` senza `--config` dalla radice: proverebbe a configurare l’app Vite invece dello scraper.
 
-## 3. Collega Bookflix
+Apri https://bookflix-scraper.riciriccio.workers.dev/health . Il risultato atteso include:
 
-1. Aggiorna il progetto GitHub con il contenuto del pacchetto **bookflix-scraper-prototipo.zip**. Mantieni la cartella `.github` e la licenza esistente. Non caricare `node_modules` o backup della libreria. Le cartelle `src` e `worker` vanno nella radice del repository, allo stesso livello di `package.json`.
-2. Attendi il completamento della pubblicazione GitHub Pages e ricarica il sito.
-3. Apri **Aggiungi libro → Servizio di recupero**.
-4. Inserisci l'indirizzo base del Worker, senza `/health` o altri percorsi, e premi **Salva indirizzo**. L'indirizzo viene conservato in questo browser; va configurato anche sul telefono.
-5. Cerca l'ISBN `9788834603000`. Per una prova più affidabile incolla anche il link della scheda IBS:
-
-https://www.ibs.it/nome-della-rosa-ediz-illustrata-libro-umberto-eco/e/9788834603000
-
-6. Controlla titolo, autore, editore, anno, pagine, generi e copertina nell'anteprima. Salva soltanto dopo averli verificati.
-
-## 4. Origini consentite
-
-Il codice è già configurato per `https://riccardogiussani.github.io`. L'origine **non comprende `/bookflix/`**.
-
-Per provare dal sito locale, nelle **Settings → Variables and Secrets** del Worker aggiungi una variabile di testo chiamata `ALLOWED_ORIGINS` con:
-
-```
-https://riccardogiussani.github.io,http://localhost:5173
+```json
+{"ok":true,"version":"0.5.0","authentication":{"required":true,"configured":true}}
 ```
 
-Salva e ripubblica se richiesto. Non serve questa modifica per usare il sito GitHub Pages dal telefono.
+Può includere anche `sources`. Se `configured` è false, il secret manca. Il valore del secret non viene restituito.
+
+Aprendo nel browser `/lookup?isbn=9788834603000` senza header di autorizzazione è **corretto** ricevere HTTP 401: un link pubblico non deve permettere di usare lo scraper. Non aggiungere il codice all’URL per provare.
+
+## 3. Aggiorna il sito GitHub Pages
+
+Fai commit e push dei file modificati dell’app, del Worker, dei test e delle istruzioni su `main`. Non includere file con credenziali. Attendi il completamento del workflow GitHub Actions e ricarica l’app.
+
+Il codice del Worker nel repository è pubblico, ma il suo secret resta su Cloudflare. Non serve inserirlo nelle variabili GitHub Actions.
+
+## 4. Login all’apertura dell’app
+
+1. Apri o ricarica Bookflix: deve comparire la schermata di login, prima della libreria.
+2. Inserisci uno **username qualsiasi** e come **password** il valore di `ACCESS_CODE`. Lo username non viene verificato né inviato al Worker: è un’etichetta locale e non crea un archivio separato.
+3. Premi **Accedi**. L’app chiama `/auth/check`, protetto dalla password. Soltanto una risposta `{ "authenticated": true }` apre la libreria. Il solo `/health` pubblico non è sufficiente. Non vengono interrogati portali di libri durante il login.
+4. Se la password è errata, il Worker non è aggiornato o manca la connessione, il login resta visibile con un messaggio. Serve Internet per ogni nuovo accesso all’apertura della pagina.
+5. Facoltativamente scegli **Ricorda la password su questo dispositivo**. Anche se ricordata, viene nuovamente verificata dopo ogni caricamento della pagina. Chi accede al browser potrebbe recuperare una password salvata.
+6. **Esci** torna al login e rimuove la password salvata su questo browser; i libri restano nell’archivio locale. Se la password viene cambiata sul Worker, la successiva richiesta ISBN o di copertina rifiutata riporta al login.
+
+L’indirizzo del servizio è già configurato nel sorgente (`src/isbn.ts`). La password viene trasmessa via HTTPS nell’header Authorization, mai nella query, e non viene inoltrata ai portali. La libreria non viene caricata dall’interfaccia prima dell’accesso. L’archivio locale non è cifrato: questa schermata non costituisce un sistema di account multipli o di cifratura dei dati sul dispositivo.
+
+Se hai già configurato `ACCESS_CODE` nella versione precedente, **non occorre modificarlo**: basta ripubblicare il Worker aggiornato e fare commit e push dell’app. Non è stato eseguito alcun deploy dall’agente.
+
+## Rotazione o revoca
+
+Ripeti `wrangler secret put ACCESS_CODE --config .\worker\wrangler.jsonc` e scegli un nuovo valore. Le nuove richieste con il vecchio codice vengono rifiutate. Aggiorna il codice nell’app su ciascun dispositivo. Nessuna nuova build del sito è necessaria per cambiare il secret.
+
+## Prove locali opzionali
+
+Le credenziali locali, se necessarie, vanno in `worker/.dev.vars`, escluso da Git. Non crearle se non stai provando il Worker localmente. Per la normale app locale che usa il Worker online basta includere l’origine locale in `ALLOWED_ORIGINS`, per esempio `https://riccardogiussani.github.io,http://localhost:5173`.
+
+La restrizione di origine non è autenticazione: il controllo del codice viene eseguito anche su richieste senza Origin. Il limite di richieste in memoria è best effort per istanza, non una protezione globale contro tentativi distribuiti. Il codice lungo e casuale evita di dipendere da un PIN breve.
 
 ## Cosa aspettarti dal prototipo
 
@@ -78,12 +78,13 @@ Salva e ripubblica se richiesto. Non serve questa modifica per usare il sito Git
 - La libreria resta nel browser. Il Worker riceve ISBN e link della scheda e non memorizza note, valutazioni o catalogo. Le query possono comparire nei normali log del servizio.
 - Le prove locali non dimostrano l'accesso dai server Cloudflare: i portali possono trattarli diversamente. La verifica dopo il deploy è necessaria prima di considerarlo operativo.
 
-## Se qualcosa non funziona
 
-- **Origine non autorizzata:** controlla `ALLOWED_ORIGINS`, senza il percorso `/bookflix/`.
-- **Limite di richieste:** attendi qualche minuto. Non rilanciare ricerche ripetute.
-- **ISBN non corrispondente:** usa il link dell'edizione cartacea che possiedi.
-- **Risultati vuoti:** prova una scheda diretta; se fallisce, completa il modulo manualmente.
-- **Impossibile contattare il servizio:** verifica `/health`, l'indirizzo salvato nell'app e il completamento del deploy.
+## Errori frequenti
 
-Non sono necessari token API nell'app o modifiche ai dati esistenti. Prima di aggiornare il sito esporta comunque un backup ZIP della libreria.
+- **HTTP 503:** manca `ACCESS_CODE` sul Worker pubblicato.
+- **HTTP 401:** il codice inserito nell’app non corrisponde al secret attuale.
+- **Errore di rete dopo l’aggiornamento:** controlla deploy del Worker e preflight CORS; questa versione consente l’header Authorization.
+- **HTTP 429:** attendi prima di riprovare.
+- **Origine non autorizzata:** `ALLOWED_ORIGINS` deve contenere il dominio senza il percorso `/bookflix/`.
+
+La libreria rimane locale e modificabile anche quando il servizio di scraping non è disponibile.

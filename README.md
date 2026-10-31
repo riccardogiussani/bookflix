@@ -1,3 +1,7 @@
+# Aggiornamento 0.5.0: login iniziale
+
+Login, ricerca e copertine richiedono il secret Cloudflare `ACCESS_CODE`, da impostare personalmente seguendo **[worker/SETUP.md](worker/SETUP.md)** prima del deploy. Non inserire il codice nel repository o nella build del sito. I file locali sono aggiornati; il deploy resta a cura dell’utente.
+
 # Bookflix / Scaffale — prototipo scraper
 
 Applicazione personale in italiano, archivio locale nel browser. React, TypeScript, Dexie/IndexedDB e backup ZIP con immagini. L’interfaccia rimane su GitHub Pages. Un piccolo Cloudflare Worker recupera i metadati da pagine pubbliche di libri.
@@ -23,7 +27,7 @@ In GitHub Settings → Pages scegliere GitHub Actions. Il workflow su `main` ese
 
 Vedi **[worker/SETUP.md](worker/SETUP.md)**. Il setup e il deploy del Worker sono da eseguire personalmente dall’utente. L’agente non ha creato risorse Cloudflare e non ha aggiornato il sito pubblicato.
 
-Nell’app, “Aggiungi libro → Servizio di recupero” permette di salvare l’indirizzo base del Worker. Nessuna API Google Books o Open Library è usata in questa versione.
+Nell’app, La schermata iniziale richiede username libero e password; la password viene verificata online su `/auth/check` prima di caricare la libreria. L’indirizzo del Worker è preconfigurato nel sorgente. Nessuna API Google Books o Open Library è usata in questa versione.
 
 ## Verifica funzionale
 
@@ -36,7 +40,7 @@ Nell’app, “Aggiungi libro → Servizio di recupero” permette di salvare l�
 
 ## Persistenza e backup
 
-Archivio locale, senza account o sincronizzazione. Telefono e computer hanno librerie separate. L’indirizzo del Worker viene salvato separatamente nel browser e non entra nei backup del catalogo. Cancellare i dati del sito può eliminare archivio e impostazione del servizio. Il pulsante di persistenza dipende dal browser: esportare regolarmente i backup.
+Archivio locale, senza account o sincronizzazione. Telefono e computer hanno librerie separate. Il codice di accesso viene conservato separatamente nella sessione o, su scelta esplicita, nel browser. Non entra nei backup del catalogo. Cancellare i dati del sito può eliminare archivio e impostazione del servizio. Il pulsante di persistenza dipende dal browser: esportare regolarmente i backup.
 
 Il dominio del sito determina l’ambito dei dati IndexedDB. Prima di cambiare origine, esportare un backup. Più copie di Bookflix sulla stessa origine github.io condividono l’archivio.
 
