@@ -5,6 +5,7 @@
   "compatibility_date": "2026-10-31",
   "workers_dev": true,
   "vars": {
+    "KOOFR_COLLECTION_ID": "ca91c2ce-b8c7-487e-8f40-99024a354c63",
     "ALLOWED_ORIGINS": "https://riccardogiussani.github.io"
   }
 }

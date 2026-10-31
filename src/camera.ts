@@ -15,7 +15,7 @@ export function cameraError(error:unknown){
  return 'Non riesco ad avviare la fotocamera. Riprova oppure usa l’inserimento manuale.';
 }
 export function startISBNScanner(video:HTMLVideoElement,frame:HTMLElement,onISBN:(isbn:string)=>void,onReady:()=>void,onError:(message:string)=>void){
- let reported=false;let active=true,media:MediaStream|null=null,timer:ReturnType<typeof setTimeout>|undefined;
+ let active=true,media:MediaStream|null=null,timer:ReturnType<typeof setTimeout>|undefined;
  function stop(){active=false;clearTimeout(timer);media?.getTracks().forEach(t=>t.stop());if(media&&video.srcObject===media){video.pause();video.srcObject=null;}media=null;}
  async function start(){
   if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia){if(active)onError('La fotocamera richiede HTTPS. Apri il sito GitHub Pages oppure usa l’inserimento manuale.');return;}
@@ -28,7 +28,7 @@ export function startISBNScanner(video:HTMLVideoElement,frame:HTMLElement,onISBN
    function scan(){if(!active)return;
     if(video.readyState>=2){const crop=cameraCrop(video.videoWidth,video.videoHeight,video.getBoundingClientRect(),frame.getBoundingClientRect());
      if(crop){const scale=Math.min(1,1000/crop.width);canvas.width=Math.max(1,Math.round(crop.width*scale));canvas.height=Math.max(1,Math.round(crop.height*scale));context!.drawImage(video,crop.x,crop.y,crop.width,crop.height,0,0,canvas.width,canvas.height);
-      try{const isbn=normalizeISBN(reader.decodeFromCanvas(canvas).getText());if(isbn){stop();onISBN(isbn);return;}}catch(error){if(!reported){console.error('Scanner preview diagnostic',error);reported=true;}}
+      try{const isbn=normalizeISBN(reader.decodeFromCanvas(canvas).getText());if(isbn){stop();onISBN(isbn);return;}}catch{/* No valid ISBN in this frame. */}
      }
     }timer=setTimeout(scan,220);
    }scan();

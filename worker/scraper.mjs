@@ -1,4 +1,5 @@
-// Standalone Cloudflare Worker: paste this file in the dashboard editor.
+import {koofr} from './koofr.mjs';
+// Cloudflare Worker entry point. Deploy with worker/wrangler.jsonc (includes koofr.mjs).
 const DEFAULT_ORIGIN = 'https://riccardogiussani.github.io';
 const UA = 'BookflixMetadata/0.1 (personal library; low-volume metadata lookup)';
 const MAX_HTML = 4 * 1024 * 1024;
@@ -140,18 +141,21 @@ async function authorized(request,secret){
 export default {async fetch(request,env={},context={waitUntil:()=>{}}){
  const origin=request.headers.get('Origin');const allowed=(env.ALLOWED_ORIGINS||DEFAULT_ORIGIN).split(',').map(s=>s.trim());
  const headers={'Content-Type':'application/json; charset=utf-8',Vary:'Origin','X-Content-Type-Options':'nosniff','Cache-Control':'no-store'};
- if(origin&&allowed.includes(origin))Object.assign(headers,{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Methods':'GET, OPTIONS','Access-Control-Allow-Headers':'Authorization'});
+ if(origin&&allowed.includes(origin))Object.assign(headers,{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Methods':'GET, PUT, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type, If-Match, If-None-Match'});
  const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers});
  if(origin&&!allowed.includes(origin))return json({error:'Origine non autorizzata.'},403);
  if(request.method==='OPTIONS')return new Response(null,{status:204,headers});
- if(request.method!=='GET')return json({error:'Metodo non consentito.'},405);
- const url=new URL(request.url);if(url.pathname==='/health')return json({ok:true,version:'0.6.0',authentication:{required:true,configured:typeof env.ACCESS_CODE==='string'&&!!env.ACCESS_CODE},sources:Object.values(SOURCE_NAMES),automatic:['ibs','feltrinelli','hoepli','mondadori','giunti','amazon (ISBN 978)']});
- if(!['/lookup','/cover','/auth/check'].includes(url.pathname))return json({error:'Percorso non trovato.'},404);
- const ip=request.headers.get('CF-Connecting-IP')||'local';const now=Date.now();if(windows.size>2000)for(const [k,v] of windows)if(v.until<now)windows.delete(k);const bucket=ip+(url.pathname==='/auth/check'?':login':':metadata');const window=windows.get(bucket)||{until:now+60000,count:0};if(window.until<now){window.until=now+60000;window.count=0;}window.count++;windows.set(bucket,window);if(window.count>(url.pathname==='/auth/check'?12:60))return json({error:'Troppe richieste. Attendi un minuto.'},429);
+ if(!['GET','PUT'].includes(request.method))return json({error:'Metodo non consentito.'},405);
+ const url=new URL(request.url);if(url.pathname==='/health')return json({ok:true,version:'0.7.0',storage:{provider:'Koofr',configured:!!(env.KOOFR_USERNAME&&env.KOOFR_PASSWORD&&env.KOOFR_COLLECTION_ID)},authentication:{required:true,configured:typeof env.ACCESS_CODE==='string'&&!!env.ACCESS_CODE},sources:Object.values(SOURCE_NAMES),automatic:['ibs','feltrinelli','hoepli','mondadori','giunti','amazon (ISBN 978)']});
+ const library=url.pathname==='/library'||url.pathname.startsWith('/library/');
+ if(!library&&request.method!=='GET')return json({error:'Metodo non consentito.'},405);
+ if(!library&&!['/lookup','/cover','/auth/check'].includes(url.pathname))return json({error:'Percorso non trovato.'},404);
+ const ip=request.headers.get('CF-Connecting-IP')||'local';const now=Date.now();if(windows.size>2000)for(const [k,v] of windows)if(v.until<now)windows.delete(k);const bucket=ip+(library?':library':url.pathname==='/auth/check'?':login':':metadata');const window=windows.get(bucket)||{until:now+60000,count:0};if(window.until<now){window.until=now+60000;window.count=0;}window.count++;windows.set(bucket,window);if(window.count>(library?30000:url.pathname==='/auth/check'?12:60))return json({error:'Troppe richieste. Attendi un minuto.'},429);
  if(typeof env.ACCESS_CODE!=='string'||!env.ACCESS_CODE)return json({error:'Il servizio non ha ancora un codice di accesso configurato.'},503);
  const failureKey=ip+':failed-password';const failures=windows.get(failureKey);if(failures&&failures.until>now&&failures.count>=12)return json({error:'Troppi tentativi. Attendi un minuto.'},429);
  if(!await authorized(request,env.ACCESS_CODE)){const failed=failures&&failures.until>now?failures:{until:now+60000,count:0};failed.count++;windows.set(failureKey,failed);return json({error:'Codice di accesso mancante o non valido.'},401);}
  if(url.pathname==='/auth/check')return json({authenticated:true});
+ if(library)return koofr(request,env,headers);
  try{
   const isbn=isbn13(url.searchParams.get('isbn'));const supplied=url.searchParams.get('url');
   if(url.pathname==='/cover'){

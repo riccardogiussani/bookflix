@@ -14,7 +14,7 @@ it('resta chiuso quando manca il secret Cloudflare',async()=>{
 });
 it('non accetta il codice nella query string',async()=>{expect((await worker.fetch(request('/lookup?isbn=9788834603000&access_code='+code),env)).status).toBe(401);});
 it('consente il preflight Authorization soltanto all’origine configurata',async()=>{
- const r=await worker.fetch(request('/lookup','','https://riccardogiussani.github.io','OPTIONS'),env);expect(r.status).toBe(204);expect(r.headers.get('Access-Control-Allow-Headers')).toBe('Authorization');expect((await worker.fetch(request('/lookup','','https://other.test','OPTIONS'),env)).status).toBe(403);
+ const r=await worker.fetch(request('/lookup','','https://riccardogiussani.github.io','OPTIONS'),env);expect(r.status).toBe(204);expect(r.headers.get('Access-Control-Allow-Headers')).toContain('Authorization');expect((await worker.fetch(request('/lookup','','https://other.test','OPTIONS'),env)).status).toBe(403);
 });
 it('mantiene health pubblico senza esporre il secret',async()=>{const r=await worker.fetch(request('/health'),env);expect(r.status).toBe(200);const body=await r.text();expect(body).not.toContain(code);expect(JSON.parse(body).authentication).toEqual({required:true,configured:true});});
 it('con il codice corretto raggiunge il portale, senza inoltrargli il codice',async()=>{

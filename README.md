@@ -1,54 +1,56 @@
-# Bookflix / Scaffale — prototipo scraper
+# Bookflix / Scaffale — libreria personale
 
-Applicazione personale in italiano, archivio locale nel browser. React, TypeScript, Dexie/IndexedDB e backup ZIP con immagini. L’interfaccia rimane su GitHub Pages. Un piccolo Cloudflare Worker recupera i metadati da pagine pubbliche di libri.
+Applicazione in italiano con copertine, inserimento ISBN e consultazione a righe orizzontali. React, TypeScript e Vite su GitHub Pages; Cloudflare Worker per metadati e archivio Koofr/WebDAV; IndexedDB per la cache locale; backup ZIP aperto con immagini.
 
-## Avvio e verifiche
+## Avvio e controlli
 
 Con Node.js 22 o successivo, nella radice del progetto:
 
-```
+```powershell
 npm ci
 npm run dev
 ```
 
-Aprire l’indirizzo mostrato. `npm test` esegue le verifiche di archivio, backup, client e scraper. `npm run build` produce il sito statico in `dist`. I test del Worker girano in Node: non sono una verifica sul runtime Cloudflare.
+`npm test` verifica archivio, backup, login, scanner, scraper e integrazione cloud con un WebDAV simulato. `npm run build` produce il sito statico in `dist`. I test non accedono al tuo account Koofr e non sostituiscono le prove del servizio distribuito.
 
-## Pubblicazione del sito
+## Configurazione e pubblicazione
 
-Caricare nella radice del repository il contenuto del progetto, incluse `.github`, `src`, `worker`, `package.json` e `package-lock.json`. Non caricare `node_modules`, backup personali o catalogo. Mantenere la licenza già presente nel repository.
+- **Koofr:** segui [worker/KOOFR.md](worker/KOOFR.md). Contiene tutti i comandi, la struttura della raccolta e le verifiche da fare sui tuoi dispositivi.
+- **Login e scraper:** [worker/SETUP.md](worker/SETUP.md).
+- **Fonti metadati:** [worker/SOURCES.md](worker/SOURCES.md).
 
-In GitHub Settings → Pages scegliere GitHub Actions. Il workflow su `main` esegue test e build prima della pubblicazione. Il sito funziona sotto `https://riccardogiussani.github.io/bookflix/`.
+Configurazione dei secret e deploy del Worker sono da eseguire personalmente dall’utente. Pubblica prima il Worker 0.7.0, poi fai commit e push dell’app su `main`. GitHub Actions esegue test e build e pubblica su Pages. Non aggiungere credenziali al repository.
 
-## Setup del servizio di recupero
+Il Worker si pubblica dalla radice con:
 
-Vedi **[worker/SETUP.md](worker/SETUP.md)**. Il setup e il deploy del Worker sono da eseguire personalmente dall’utente. L’agente non ha creato risorse Cloudflare e non ha aggiornato il sito pubblicato.
+```powershell
+npx wrangler deploy --config .\worker\wrangler.jsonc
+```
 
-Nell’app, La schermata iniziale richiede username libero e password; la password viene verificata online su `/auth/check` prima di caricare la libreria. L’indirizzo del Worker è preconfigurato nel sorgente. Nessuna API Google Books o Open Library è usata in questa versione.
+Non lanciare il deploy automatico Vite dalla radice senza questo file di configurazione. Il Worker importa anche `worker/koofr.mjs`.
+
+## Dati e sincronizzazione
+
+Catalogo e immagini vengono salvati in `.booflix/<uuid-raccolta>/` su Koofr. Il Worker utilizza `KOOFR_USERNAME` e `KOOFR_PASSWORD` come secret; `KOOFR_COLLECTION_ID` è l’identificativo pubblico della raccolta. Il login Bookflix continua a usare il secret `ACCESS_CODE`, mentre lo username è solo un nome visualizzato.
+
+L’app aggiorna la raccolta all’accesso e con **Aggiorna raccolta**. Le scritture richiedono connessione e usano la versione WebDAV del catalogo per rilevare conflitti tra dispositivi. Non c’è sincronizzazione in tempo reale. La cache viene sostituita solo dopo il caricamento completo e la verifica delle copertine o dopo un salvataggio confermato.
+
+Nell’app già aperta puoi consultare i dati caricati anche senza rete; serve Internet per un nuovo login o per ricaricare il sito. La cache non è cifrata. Non è ancora disponibile una PWA offline. Nessuna migrazione dell’archivio locale precedente: si usa una nuova cache senza cancellare il vecchio database.
+
+Le immagini cloud sono immutabili: eliminare un libro o sostituire una copertina può lasciare file non più referenziati. Non è ancora prevista una pulizia automatica. La struttura permette raccolte distinte, ma in questa fase l’interfaccia apre la raccolta configurata nel Worker.
+
+## Backup aperto
+
+Esporta/importa ZIP con `library.json` (`format: "scaffale"`, `version: 1`, `exportedAt`, `books`) e immagini in `covers/<id>`. Password e impostazioni di accesso non entrano nel backup. L’importazione sostituisce la raccolta Koofr dopo conferma; il file viene prima validato in un archivio temporaneo. Un backup invalido non cancella la raccolta.
+
+Limiti: ZIP 200 MB, ogni immagine 10 MB, 20.000 libri; catalogo cloud JSON 16 MiB. Restano applicabili le quote dei piani gratuiti Koofr e Cloudflare.
 
 ## Verifica funzionale
 
-1. Aggiungere manualmente un libro con più autori e generi separati da punto e virgola, copertina, note e valutazione.
-2. Riaprire il sito nello stesso browser: tutti i dati devono restare disponibili. Modificare il libro e verificare il salvataggio.
-3. Esportare lo ZIP, eliminare il libro e ripristinare dal backup. Verificare anche la copertina. Un backup errato non deve cancellare l’archivio.
-4. Dopo il setup del Worker, cercare ISBN `9788834603000` con link diretto IBS (vedere la guida). Controllare l’anteprima, correggere e salvare. Cercare nuovamente: deve aprirsi il libro già presente.
-5. Provare la ricerca senza link e un ISBN non trovato. Il recupero automatico tramite Giunti è sperimentale e può essere limitato dal portale; il modulo manuale resta disponibile.
-6. Su telefono HTTPS, autorizzare la fotocamera e leggere un EAN-13 ISBN. Chiudere il modulo deve spegnere la fotocamera. Provare anche il rifiuto del permesso. La scansione fisica non è stata verificata dall’agente.
+1. Su telefono HTTPS, Aggiungi libro deve aprire la fotocamera a tutto schermo con guida ISBN e pulsante Inserimento manuale. Un codice valido avvia subito il recupero e apre il modulo compilato. Prova anche il permesso negato e la chiusura della fotocamera. Le prove fisiche le esegue l’utente.
+2. Inserisci un libro con autori e generi separati da punto e virgola, immagine, note e valutazione; riaprilo da un altro dispositivo dopo Aggiorna raccolta.
+3. Verifica modifica, eliminazione, duplicati ISBN, esportazione e ripristino ZIP.
+4. Esegui le prove di conflitto e rete assente in [worker/KOOFR.md](worker/KOOFR.md).
+5. La ricerca dei metadati prova Amazon per primo e poi le altre fonti. Puoi incollare un link, correggere l’anteprima o compilare tutto manualmente se i portali non rispondono.
 
-## Persistenza e backup
-
-Archivio locale, senza account o sincronizzazione. Telefono e computer hanno librerie separate. Il codice di accesso viene conservato separatamente nella sessione o, su scelta esplicita, nel browser. Non entra nei backup del catalogo. Cancellare i dati del sito può eliminare archivio e impostazione del servizio. Il pulsante di persistenza dipende dal browser: esportare regolarmente i backup.
-
-Il dominio del sito determina l’ambito dei dati IndexedDB. Prima di cambiare origine, esportare un backup. Più copie di Bookflix sulla stessa origine github.io condividono l’archivio.
-
-Formato ZIP: `library.json` con `format: "scaffale"`, `version: 1`, `exportedAt`, `books`; immagini in `covers/<id>`. Autori e generi sono array, valutazione null o intero 1–5, pagine null o intero positivo, date ISO. ISBN-10 normalizzato a ISBN-13. Importazione con sostituzione completa dopo conferma e validazione, in transazione unica. Limiti: ZIP 200 MB, immagine 10 MB, 20.000 record.
-
-## Stato attuale — 0.6.0
-
-- Login iniziale con username libero e password verificata dal Worker. Nessun account separato per username. Il catalogo locale non è cifrato.
-- Inserimento manuale, scansione ISBN, archivio locale, backup ZIP, dettaglio e prime righe orizzontali implementati.
-- Fonti metadati: IBS, Feltrinelli, Hoepli, Mondadori Store, Giunti al Punto e Amazon (sperimentale). L’app combina solo edizioni con ISBN corrispondente e segnala i campi discordanti.
-- URL Worker già configurato. Usa il secret `ACCESS_CODE` esistente e pubblica il Worker aggiornato; nessun valore privato va nel repository. Istruzioni: **[worker/SETUP.md](worker/SETUP.md)**.
-- Ricerca automatica e importazione da link disponibili sulle sei fonti, con limitazioni specifiche. Risultati e prove: **[worker/SOURCES.md](worker/SOURCES.md)**.
-- Le prove locali non garantiscono l’accessibilità da Cloudflare. Non è stato eseguito il deploy dall’agente.
-- Koofr/WebDAV in sospeso: la persistenza continua a essere locale.
-- Restano da completare ottimizzazione della consultazione, ricerca/filtri della libreria, installazione PWA e cache offline dell’interfaccia.
+Restano da completare ricerca/filtri della libreria, ulteriori ottimizzazioni delle righe di consultazione e PWA. Nessun deploy né accesso al tuo account Koofr è stato eseguito dall’agente.

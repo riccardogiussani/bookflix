@@ -23,8 +23,8 @@ export function normalizeISBN(raw:string):string {
  if(!/^(978|979)\d{10}$/.test(s)||[...s].reduce((n,c,i)=>n+Number(c)*(i%2?3:1),0)%10)throw Error('ISBN non valido: inserisci un ISBN-10 o ISBN-13.');
  return s;
 }
-export class Library extends Dexie {books!:Table<Book,string>; constructor(name='scaffale-library'){super(name);this.version(1).stores({books:'id,&isbnKey,createdAt,*genres,*authors,status'});}}
-export const db=new Library();
+export class Library extends Dexie {books!:Table<Book,string>;sync!:Table<{key:string;value:unknown},string>; constructor(name='scaffale-library'){super(name);this.version(1).stores({books:'id,&isbnKey,createdAt,*genres,*authors,status'});this.version(2).stores({sync:'key'});}}
+export const db=new Library('bookflix-koofr-cache');
 function record(b:Book){const {isbnKey,...clean}=b as Book & {isbnKey?:string};return {...clean,...(b.isbn?{isbnKey:b.isbn}:{})};}
 export function validate(b:Book):Book {
  if(!b||typeof b.id!=='string'||!b.id||typeof b.title!=='string'||!b.title.trim())throw Error('Ogni libro deve avere un titolo e un identificativo.');
@@ -38,7 +38,7 @@ export async function saveBook(input:Book,database=db){const b=validate({...inpu
  if(b.isbn){const existing=await database.books.where('isbnKey').equals(b.isbn).first();if(existing&&existing.id!==b.id)throw Error('Questo ISBN è già presente in libreria.');}
  await database.books.put(record(b));});}
 export async function exportLibrary(database=db){const zip=new JSZip();const books=await database.books.toArray();const rows=books.map(b=>{
- const {cover,...rest}=b;const {isbnKey,...clean}=rest as typeof rest & {isbnKey?:string};
+ const {cover,...rest}=b;const {isbnKey,cloudCoverPath,cloudCoverHash,...clean}=rest as typeof rest & {isbnKey?:string;cloudCoverPath?:string;cloudCoverHash?:string};
  if(cover)zip.file(`covers/${b.id}`,cover.arrayBuffer());
  return {...clean,coverPath:cover?`covers/${b.id}`:null,coverType:cover?.type||null};
  });zip.file('library.json',JSON.stringify({format:'scaffale',version:1,exportedAt:new Date().toISOString(),books:rows},null,2));return zip.generateAsync({type:'blob'});}
