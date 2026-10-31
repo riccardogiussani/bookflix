@@ -1,0 +1,10 @@
+{
+  "$schema": "https://unpkg.com/wrangler/config-schema.json",
+  "name": "bookflix-scraper",
+  "main": "scraper.mjs",
+  "compatibility_date": "2026-10-31",
+  "workers_dev": true,
+  "vars": {
+    "ALLOWED_ORIGINS": "https://riccardogiussani.github.io"
+  }
+}

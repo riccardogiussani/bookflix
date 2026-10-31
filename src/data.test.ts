@@ -27,3 +27,8 @@ it('un backup incompleto non cancella i dati esistenti',async()=>{
  await expect(importLibrary(await zip.generateAsync({type:'blob'}),d)).rejects.toThrow('manca una copertina');
  expect((await d.books.toArray())[0].title).toBe('Da conservare');
 });
+it('libera l’ISBN quando viene rimosso da un libro',async()=>{
+ const d=database();const original={...blankBook(),title:'Primo',isbn:'9780306406157'};await saveBook(original,d);
+ const loaded=(await d.books.get(original.id))!;await saveBook({...loaded,isbn:''},d);
+ await saveBook({...blankBook(),title:'Secondo',isbn:original.isbn},d);expect(await d.books.count()).toBe(2);
+});

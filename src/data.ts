@@ -8,7 +8,12 @@ export type Book = {
  createdAt:string; updatedAt:string; cover?:Blob;
 };
 export const statuses = ['Da leggere','In lettura','Letto'] as const;
-export function blankBook():Book {const now=new Date().toISOString();return {id:crypto.randomUUID(),title:'',subtitle:'',authors:[],publisher:'',year:'',pages:null,language:'',genres:[],description:'',isbn:'',status:'Da leggere',rating:null,notes:'',createdAt:now,updatedAt:now};}
+export function newId():string {
+ if(typeof crypto.randomUUID==='function')return crypto.randomUUID();
+ const bytes=crypto.getRandomValues(new Uint8Array(16));bytes[6]=(bytes[6]&15)|64;bytes[8]=(bytes[8]&63)|128;
+ const hex=[...bytes].map(b=>b.toString(16).padStart(2,'0')).join('');return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+}
+export function blankBook():Book {const now=new Date().toISOString();return {id:newId(),title:'',subtitle:'',authors:[],publisher:'',year:'',pages:null,language:'',genres:[],description:'',isbn:'',status:'Da leggere',rating:null,notes:'',createdAt:now,updatedAt:now};}
 export function normalizeISBN(raw:string):string {
  const s=raw.replace(/[\s-]/g,'').toUpperCase(); if(!s)return '';
  if(s.length===10 && /^\d{9}[\dX]$/.test(s)){
@@ -20,7 +25,7 @@ export function normalizeISBN(raw:string):string {
 }
 export class Library extends Dexie {books!:Table<Book,string>; constructor(name='scaffale-library'){super(name);this.version(1).stores({books:'id,&isbnKey,createdAt,*genres,*authors,status'});}}
 export const db=new Library();
-function record(b:Book){return {...b,...(b.isbn?{isbnKey:b.isbn}:{})};}
+function record(b:Book){const {isbnKey,...clean}=b as Book & {isbnKey?:string};return {...clean,...(b.isbn?{isbnKey:b.isbn}:{})};}
 export function validate(b:Book):Book {
  if(!b||typeof b.id!=='string'||!b.id||typeof b.title!=='string'||!b.title.trim())throw Error('Ogni libro deve avere un titolo e un identificativo.');
  for(const k of ['subtitle','publisher','year','language','description','isbn','notes','createdAt','updatedAt'] as const)if(typeof b[k]!=='string')throw Error('Formato dei dati non valido.');

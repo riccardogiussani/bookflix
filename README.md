@@ -1,45 +1,54 @@
-# Scaffale — fase 1
+# Bookflix / Scaffale — prototipo scraper
 
-Applicazione personale in italiano, con archivio locale nel browser. React, TypeScript, Dexie/IndexedDB e JSZip. Nessun dato del catalogo viene incluso nella pubblicazione del sito. Il font è scaricato da Google Fonts; in assenza di rete viene usato il font di sistema.
+Applicazione personale in italiano, archivio locale nel browser. React, TypeScript, Dexie/IndexedDB e backup ZIP con immagini. L’interfaccia rimane su GitHub Pages. Un piccolo Cloudflare Worker recupera i metadati da pagine pubbliche di libri.
 
-## Avvio sul computer
+## Avvio e verifiche
 
-Con Node.js 22 o successivo installato, aprire questa cartella nel terminale:
+Con Node.js 22 o successivo, nella radice del progetto:
 
 ```
 npm ci
 npm run dev
 ```
 
-Aprire l’indirizzo mostrato. Per creare il sito statico: `npm run build`. Per le verifiche automatiche: `npm test`.
+Aprire l’indirizzo mostrato. `npm test` esegue le verifiche di archivio, backup, client e scraper. `npm run build` produce il sito statico in `dist`. I test del Worker girano in Node: non sono una verifica sul runtime Cloudflare.
 
-## Pubblicazione gratuita su GitHub Pages
+## Pubblicazione del sito
 
-1. Creare un repository pubblico su GitHub Free e caricare **il contenuto di questa cartella**, inclusi `package-lock.json` e `.github`, nella radice del repository. Non caricare `node_modules`, backup personali o il catalogo.
-2. Usare il ramo `main`.
-3. In Settings → Pages → Build and deployment, scegliere **GitHub Actions**.
-4. Avviare il workflow “Pubblica su GitHub Pages” nella scheda Actions, oppure effettuare un nuovo push su main.
-5. Il workflow verifica e costruisce il sito, quindi mostra l’indirizzo pubblicato.
+Caricare nella radice del repository il contenuto del progetto, incluse `.github`, `src`, `worker`, `package.json` e `package-lock.json`. Non caricare `node_modules`, backup personali o catalogo. Mantenere la licenza già presente nel repository.
 
-Il percorso degli asset è relativo: funziona anche su `https://nome.github.io/repository/`. Non cambiare dominio/percorso senza prima esportare un backup: l'archivio è legato all'origine del sito. Applicazioni diverse sulla stessa origine github.io condividono l'ambito IndexedDB: non ospitare copie indipendenti di Scaffale sotto lo stesso dominio aspettandoti archivi separati.
+In GitHub Settings → Pages scegliere GitHub Actions. Il workflow su `main` esegue test e build prima della pubblicazione. Il sito funziona sotto `https://riccardogiussani.github.io/bookflix/`.
 
-## Verifica manuale della fase 1
+## Setup del servizio di recupero
 
-1. Aggiungere un libro con titolo, più autori e generi separati da punto e virgola, una copertina JPG/PNG/WebP, note e valutazione.
-2. Chiudere e riaprire la pagina nello stesso browser: libro e copertina devono restare presenti.
-3. Aprire la scheda, modificare stato e note e salvare. Controllare che il libro compaia nelle righe corrispondenti.
-4. Provare un ISBN non valido e poi due libri con ISBN equivalenti: il salvataggio deve essere impedito con un messaggio.
-5. Esportare il backup ZIP. Eliminare il libro, reimportare lo ZIP e verificare metadati e copertina.
-6. Provare un file ZIP errato: l'archivio precedente deve restare intatto.
-7. Ripetere su smartphone; il trasferimento dal computer avviene esportando e importando lo ZIP.
+Vedi **[worker/SETUP.md](worker/SETUP.md)**. Il setup e il deploy del Worker sono da eseguire personalmente dall’utente. L’agente non ha creato risorse Cloudflare e non ha aggiornato il sito pubblicato.
 
-## Formato aperto del backup
+Nell’app, “Aggiungi libro → Servizio di recupero” permette di salvare l’indirizzo base del Worker. Nessuna API Google Books o Open Library è usata in questa versione.
 
-ZIP contenente `library.json` e `covers/<id>`. Il JSON ha `format: "scaffale"`, `version: 1`, `exportedAt` e `books`. Ogni record include tutti i metadati, ID UUID, date ISO, `coverPath` e `coverType`. ISBN vuoto è consentito; gli ISBN-10 validi sono convertiti in ISBN-13. Autori e generi sono array. Valutazione: null o intero 1–5. Pagine: null o intero positivo. Stato: “Da leggere”, “In lettura”, “Letto”. Importazione: **sostituzione completa**, confermata dall'utente, dopo validazione di tutti i record e delle immagini e dentro una transazione unica. Limiti: ZIP 200 MB, singola immagine 10 MB, 20.000 record.
+## Verifica funzionale
 
-## Limiti e prossime fasi
+1. Aggiungere manualmente un libro con più autori e generi separati da punto e virgola, copertina, note e valutazione.
+2. Riaprire il sito nello stesso browser: tutti i dati devono restare disponibili. Modificare il libro e verificare il salvataggio.
+3. Esportare lo ZIP, eliminare il libro e ripristinare dal backup. Verificare anche la copertina. Un backup errato non deve cancellare l’archivio.
+4. Dopo il setup del Worker, cercare ISBN `9788834603000` con link diretto IBS (vedere la guida). Controllare l’anteprima, correggere e salvare. Cercare nuovamente: deve aprirsi il libro già presente.
+5. Provare la ricerca senza link e un ISBN non trovato. Il recupero automatico tramite Giunti è sperimentale e può essere limitato dal portale; il modulo manuale resta disponibile.
+6. Su telefono HTTPS, autorizzare la fotocamera e leggere un EAN-13 ISBN. Chiudere il modulo deve spegnere la fotocamera. Provare anche il rifiuto del permesso. La scansione fisica non è stata verificata dall’agente.
 
-- Archivio locale, senza account o sincronizzazione. La cancellazione dei dati del sito può eliminare la libreria. Il pulsante di persistenza dipende dalle decisioni del browser; esportare regolarmente il backup.
-- Implementato l'archivio e una prima consultazione a righe. Non ancora implementati recupero/scansione ISBN (fase 2), ottimizzazioni della consultazione (fase 3), ricerca e filtri (fase 4).
-- Installazione PWA e cache offline dell'interfaccia saranno completate prima della consegna finale; questa fase richiede il caricamento del sito.
-- Le prove automatiche coprono integrità dei dati e backup. Restano necessarie le verifiche sui browser e dispositivi reali.
+## Persistenza e backup
+
+Archivio locale, senza account o sincronizzazione. Telefono e computer hanno librerie separate. L’indirizzo del Worker viene salvato separatamente nel browser e non entra nei backup del catalogo. Cancellare i dati del sito può eliminare archivio e impostazione del servizio. Il pulsante di persistenza dipende dal browser: esportare regolarmente i backup.
+
+Il dominio del sito determina l’ambito dei dati IndexedDB. Prima di cambiare origine, esportare un backup. Più copie di Bookflix sulla stessa origine github.io condividono l’archivio.
+
+Formato ZIP: `library.json` con `format: "scaffale"`, `version: 1`, `exportedAt`, `books`; immagini in `covers/<id>`. Autori e generi sono array, valutazione null o intero 1–5, pagine null o intero positivo, date ISO. ISBN-10 normalizzato a ISBN-13. Importazione con sostituzione completa dopo conferma e validazione, in transazione unica. Limiti: ZIP 200 MB, immagine 10 MB, 20.000 record.
+
+## Stato del prototipo
+
+- Archivio manuale, dettagli, prime righe orizzontali, scansione e integrazione scraper implementati.
+- Schede IBS: estrazione provata su due ISBN, con completamento degli autori dal contenuto della scheda. Lingua e sottotitolo non sono sempre dichiarati e restano vuoti.
+- Giunti: parser provato su HTML reale; ricerca automatica sperimentale. Osservati anche HTTP 429. Non si promette una ricerca universale affidabile.
+- Non sono implementati Amazon e una ricerca generale sul web. Per IBS serve il link diretto; la ricerca interna IBS non viene interrogata.
+- Il Worker accetta solo fonti e immagini note, verifica la corrispondenza ISBN, gestisce timeout, limita le dimensioni delle risposte e non esegue JavaScript dei portali. I redirect vengono rifiutati; in quel caso usare il link finale della scheda.
+- Cloudflare può ricevere risposte diverse rispetto al computer locale. Il funzionamento dal Worker pubblicato va verificato dopo il setup.
+- Restano da completare ottimizzazioni delle righe (fase 3), ricerca e filtri (fase 4), installazione PWA e cache offline dell’interfaccia.
+- Google Fonts è un caricamento esterno dell’interfaccia; in assenza di rete si usa il font di sistema.
