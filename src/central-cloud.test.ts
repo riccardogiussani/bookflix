@@ -6,8 +6,8 @@ import {harness} from '../worker/test-central-env.mjs';
 import {tokenFor,identityFor} from '../worker/test-auth.mjs';
 import {jsonApi,CloudError,CloudConflict} from './central-api';
 import {selectLibrary,clearLibrary,libraryContext,type LibraryInfo} from './libraryContext';
-import {db,blankBook,type Book} from './data';
-import {openCloud,refreshCloud,cloudSave,cloudDelete} from './cloud';
+import {db,blankBook,Library,saveBook,exportLibrary,newId,type Book} from './data';
+import {openCloud,refreshCloud,cloudSave,cloudDelete,cloudImport} from './cloud';
 import {lookupISBN} from './isbn';
 vi.mock('./firebaseClient',()=>({currentAccessToken:async(code:string)=>code}));
 const code=await tokenFor(),uid=identityFor().id;
@@ -27,3 +27,8 @@ it('se i permessi sono revocati non mostra la copia cache come ripiego',async()=
 it('una cache aggiornata resta consultabile offline anche subito dopo un salvataggio',async()=>{await cloudSave(code,input());vi.stubGlobal('fetch',vi.fn(async()=>{throw Error('offline');}));const result=await openCloud(code);expect(result.online).toBe(false);expect(result.books[0].title).toBe('Edizione comune');});
 
 it('confronta la revisione anche se due modifiche hanno la stessa data visualizzata',async()=>{const [book]=await cloudSave(code,input());const newer={...book,revision:'new-version'};await db.books.put(newer);await expect(cloudSave(code,{...book,title:'Bozza obsoleta'},true)).rejects.toBeInstanceOf(CloudConflict);await expect(cloudDelete(code,book.id,book.updatedAt,book.revision)).rejects.toBeInstanceOf(CloudConflict);});
+
+it('importa un backup aggiungendo libri senza cancellare quelli presenti',async()=>{await cloudSave(code,input());const staging=new Library('test-import-'+newId());try{await saveBook({...blankBook(),title:'Dal backup'},staging);const zip=await exportLibrary(staging);const imported=await cloudImport(code,zip);expect(imported.map(b=>b.title).sort()).toEqual(['Dal backup','Edizione comune']);expect((await fixture.store.list('catalog')).length).toBe(2);}finally{await staging.delete();}});
+it('una correzione ISBN conserva ID e contributi e non crea duplicati nella cache',async()=>{const [book]=await cloudSave(code,input());const changed=await cloudSave(code,{...book,isbn:'9780140449136'},true);expect(changed).toHaveLength(1);expect(changed[0].id).toBe(book.id);expect(changed[0].isbn).toBe('9780140449136');const all=await cloudSave(code,input());expect(all).toHaveLength(2);expect(new Set(all.map(b=>b.id)).size).toBe(2);expect((await refreshCloud(code)).map(b=>b.isbn).sort()).toEqual(['9780140449136','9788804668237']);});
+
+it('una copertina mancante non blocca i libri né cancella il riferimento salvando altri metadati',async()=>{const cover=new Blob([new Uint8Array([137,80,78,71,13,10,26,10])],{type:'image/png'});await cloudSave(code,{...input(),cover});fixture.files.clear();await db.books.clear();await db.sync.clear();const result=await openCloud(code);expect(result.online).toBe(true);expect(result.books[0].title).toBe('Edizione comune');expect(result.books[0].cover).toBeUndefined();expect(result.message).toContain('copertine');await cloudSave(code,{...result.books[0],title:'Corretto'},true);const item=await fixture.store.get('libraries/'+library.id+'/items/'+result.books[0].id);expect(item.data.coverOverride).toBeUndefined();});

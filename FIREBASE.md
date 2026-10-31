@@ -1,6 +1,4 @@
-> **Aggiornamento 0.12.0:** dopo il login, la creazione delle librerie e i ruoli sono ora disponibili. Segui [FIRESTORE.md](FIRESTORE.md) per il setup attuale; le indicazioni sotto sul benvenuto senza librerie e su D1 sono storiche.
-
-# Bookflix: nuovi account Firebase — Worker 0.11.0
+# Bookflix: nuovi account Firebase — Worker 0.12.0
 
 La procedura di importazione dei sette utenti è stata annullata. Si riparte con **Crea account** (nome, email e password) oppure **Continua con Google**. I libri e le copertine della raccolta precedente restano; vecchie recensioni e valutazioni vengono eliminate, come confermato.
 
@@ -16,7 +14,7 @@ Nel progetto che hai già creato:
 4. Dall’app Web registrata copia `apiKey`, `authDomain`, `projectId` e `appId`.
 5. Se vuoi far rispettare anche dal servizio la lunghezza minima, configura una password policy di almeno 12 caratteri. L’interfaccia Bookflix richiede già 12 caratteri per registrarsi.
 
-Il sito resta su GitHub Pages. Non servono Firebase Hosting, Firestore, chiavi di service account o fatturazione per questa fase. Mantieni Spark gratuito.
+Il sito resta su GitHub Pages. Per il login non serve Firebase Hosting. Per dati, librerie e ruoli completa anche [FIRESTORE.md](FIRESTORE.md), inclusa la credenziale dedicata al Worker. Mantieni Spark gratuito.
 
 Se **Authentication → Users è vuota**, non devi cancellare nulla. Se avevi già importato i vecchi account, elimina quelli prima di creare il tuo nuovo account. Non eliminare il progetto Firebase. **Non eseguire più `auth:import` e non usare il vecchio `.bookflix-firebase-users.local.json`.**
 
@@ -58,7 +56,7 @@ npx wrangler deploy --config .\worker\wrangler.jsonc
 
 Poi fai commit e push dell’app, includendo `public/firebase-config.json`, i nuovi moduli, i test e il file di lock delle dipendenze. Non includere `.env` o i file `.bookflix-*.local.*`. Non servono variabili GitHub Actions.
 
-Il health check deve mostrare `version: "0.11.0"` e `authentication.mode: "firebase"`.
+Il health check deve mostrare `version: "0.12.0"` e `authentication.mode: "firebase"`.
 
 Apri l’app aggiornata, quindi:
 
@@ -67,11 +65,11 @@ Apri l’app aggiornata, quindi:
 
 Il nome è un nome visualizzato. La proprietà di recensioni e voti usa sempre l’UID firmato di Firebase, non il nome o l’indirizzo email scritto nel browser.
 
-Al primo accesso vedrai **Il tuo account è pronto. Non hai ancora una libreria associata.** È intenzionale: una persona appena registrata non riceve accesso automatico ai libri della raccolta precedente. Nessuno ne diventa proprietario solo perché si registra per primo.
+Dopo il setup Firestore, al primo accesso puoi **creare una libreria** o aprire quelle condivise con te. Una persona appena registrata non riceve accesso automatico alla raccolta Koofr precedente; nessuno ne diventa proprietario solo perché si registra per primo.
 
 ## 4. Associa a te la raccolta conservata
 
-Per continuare a usare i libri già presenti mentre prepariamo le librerie personali:
+Per importare esplicitamente i libri già presenti nella tua nuova libreria:
 
 1. In Firebase → Authentication → Users apri **il tuo nuovo account** e copia il suo UID.
 2. Inseriscilo in `.env` come valore di `BOOKFLIX_OWNER_UID` (non il nome e non l’email).
@@ -82,11 +80,11 @@ node .\scripts\prepare-firebase.mjs
 npx wrangler secret bulk .\.bookflix-firebase-worker.local.json --config .\worker\wrangler.jsonc
 ```
 
-4. Ricarica l’app. La verifica della sessione ti riconoscerà come proprietario e aprirà la raccolta precedente.
+4. Ricarica l’app, crea/apri la tua nuova libreria e premi **Importa raccolta Koofr precedente**. Il Worker ti riconosce come unico utente autorizzato a leggerne la sorgente; l’originale viene conservato.
 
 Per cambiare solo l’UID nei secret non serve ripubblicare il codice. I secret Koofr esistenti restano invariati.
 
-Questa assegnazione singola serve soltanto per conservare privatamente i libri durante la transizione. La creazione di nuove librerie, D1, gli amici e i ruoli per libreria sono la fase successiva: la schermata di benvenuto lo indica senza offrire un pulsante di creazione non ancora funzionante.
+Questa assegnazione singola riguarda solo l’archivio precedente. Le nuove librerie usano Firestore, con appartenenze e ruoli owner/editor/reviewer/viewer; non dipendono da un elenco di utenti nei secret.
 
 ## Reset dei vecchi contributi
 

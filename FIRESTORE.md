@@ -13,7 +13,7 @@ Nel progetto Firebase già usato per il login:
 3. Scegli una regione europea vicina, per esempio `europe-west8` (Milano), se disponibile fra le opzioni. La regione non si cambia dopo la creazione.
 4. Mantieni il piano **Spark**: non attivare Blaze o una fatturazione per questa configurazione.
 
-Il livello gratuito di Firestore Standard comprende 1 GiB, 50.000 letture e 20.000 scritture al giorno. Il costo resta zero entro le quote; superarle può rendere il servizio temporaneamente indisponibile. La prima apertura di una libreria legge elementi ed edizioni; gli aggiornamenti invariati leggono solo il documento della libreria. Le ricerche testuali avvengono nella copia locale.
+Il livello gratuito di Firestore Standard comprende 1 GiB, 50.000 letture e 20.000 scritture al giorno. Il costo resta zero entro le quote; superarle può rendere il servizio temporaneamente indisponibile. Una copertina non disponibile usa un segnaposto e non blocca i metadati; un aggiornamento manuale ritenta il recupero. La prima apertura di una libreria legge elementi ed edizioni; gli aggiornamenti invariati leggono solo il documento della libreria. Le ricerche testuali avvengono nella copia locale.
 
 Riferimenti: [creazione Firestore](https://firebase.google.com/docs/firestore/quickstart), [quote](https://firebase.google.com/docs/firestore/quotas). Le copertine restano su Koofr perché [Firebase Storage richiede Blaze](https://firebase.google.com/docs/storage/faqs-storage-changes-announced-sept-2024).
 
@@ -88,7 +88,7 @@ In Koofr le nuove immagini sono in `.booflix/catalog/covers/<SHA256>.<estensione
 4. **Viewer:** vede libri, voti e recensioni, ma non può scrivere.
 5. **Reviewer:** aggiunge/modifica/rimuove i propri voti e recensioni; non modifica libri, posizioni o copertine.
 6. **Editor e owner:** gestiscono libri, nome, membri e permessi con gli stessi poteri. Deve rimanere almeno un owner.
-7. Voti e recensioni appartengono alla singola libreria e all’UID dell’autore; la media si riferisce ai membri che hanno votato in quella libreria. Non si possono alterare contributi altrui.
+7. Voti e recensioni appartengono alla singola libreria e all’UID dell’autore; la media si riferisce ai voti presenti in quella libreria, inclusi quelli conservati dopo l’uscita di un membro. Non si possono alterare contributi altrui.
 8. La ricerca immediata resta sulle copertine e sui metadati della libreria selezionata. Cambiando libreria cambiano risultati e cache.
 
 I permessi si aggiornano al caricamento o a un’operazione online, senza notifiche in tempo reale. Una libreria aperta su un altro dispositivo va aggiornata con **Aggiorna raccolta**. Le scritture rifiutano versioni obsolete senza chiudere la bozza. La copia locale non è cifrata: chi ha accesso al profilo del browser può leggerla. Una revoca blocca le successive richieste online; non può cancellare copie o backup già ottenuti.
