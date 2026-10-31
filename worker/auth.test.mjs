@@ -26,3 +26,8 @@ it('verifica l’accesso senza scraping e richiede la password anche sul control
  expect((await worker.fetch(request('/auth/check','Bearer wrong'),env)).status).toBe(401);
  const r=await worker.fetch(request('/auth/check','Bearer '+code),env);expect(r.status).toBe(200);expect(await r.json()).toEqual({authenticated:true});expect(fetch).not.toHaveBeenCalled();
 });
+it('limita i tentativi di password errata anche alternando login e metadati',async()=>{
+ const fetch=vi.fn();vi.stubGlobal('fetch',fetch);const ip=crypto.randomUUID();
+ for(let i=0;i<12;i++){const path=i%2?'/auth/check':'/lookup?isbn=9788834603000';const r=await worker.fetch(new Request('https://worker.test'+path,{headers:{Authorization:'Bearer wrong','CF-Connecting-IP':ip}}),env);expect(r.status).toBe(401);}
+ const r=await worker.fetch(new Request('https://worker.test/cover?isbn=9788834603000',{headers:{Authorization:'Bearer wrong','CF-Connecting-IP':ip}}),env);expect(r.status).toBe(429);expect(fetch).not.toHaveBeenCalled();
+});

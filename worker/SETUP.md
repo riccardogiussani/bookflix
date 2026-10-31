@@ -1,4 +1,4 @@
-# Worker Bookflix 0.5.0 — attivazione del codice di accesso
+# Worker Bookflix 0.6.0 — attivazione del codice di accesso
 
 Il sito resta su GitHub Pages. Il suo codice contiene l’URL pubblico `https://bookflix-scraper.riciriccio.workers.dev`, ma non contiene il codice di accesso. Ricerca e download delle copertine richiedono entrambi l’autorizzazione. Senza il secret il servizio resta chiuso (HTTP 503), senza codice corretto restituisce HTTP 401. `/health` resta pubblico.
 
@@ -31,7 +31,7 @@ Non avviare `wrangler deploy` senza `--config` dalla radice: proverebbe a config
 Apri https://bookflix-scraper.riciriccio.workers.dev/health . Il risultato atteso include:
 
 ```json
-{"ok":true,"version":"0.5.0","authentication":{"required":true,"configured":true}}
+{"ok":true,"version":"0.6.0","authentication":{"required":true,"configured":true}}
 ```
 
 Può includere anche `sources`. Se `configured` è false, il secret manca. Il valore del secret non viene restituito.
@@ -67,17 +67,23 @@ Le credenziali locali, se necessarie, vanno in `worker/.dev.vars`, escluso da Gi
 
 La restrizione di origine non è autenticazione: il controllo del codice viene eseguito anche su richieste senza Origin. Il limite di richieste in memoria è best effort per istanza, non una protezione globale contro tentativi distribuiti. Il codice lungo e casuale evita di dipendere da un PIN breve.
 
-## Cosa aspettarti dal prototipo
+## Fonti e recupero dei dati
 
-- Senza link, tenta di trovare la scheda tramite ricerca HTML Giunti al Punto. La scoperta automatica è sperimentale: nelle prove sono comparsi risultati vuoti e HTTP 429. Non è garantita per tutti gli ISBN.
-- Con link, legge schede IBS o Giunti ed esige una corrispondenza ISBN nei dati della pagina. La ricerca interna IBS non viene interrogata. Non utilizza Google Books, Open Library o una API di ricerca a pagamento.
-- Amazon non è implementato. Altri editori richiedono adattatori dedicati.
-- Lingua e sottotitolo restano vuoti se la fonte non li dichiara. Non vengono dedotti dalla lingua del sito. Autori e categorie vanno verificati.
-- Il servizio scarica le copertine ammesse per consentirne il salvataggio locale; può fallire se il portale ne blocca il download. In quel caso carica l'immagine manualmente.
-- Cache delle schede positive per 24 ore nel nodo Cloudflare. Le ricerche e le immagini non sono ancora memorizzate nella cache condivisa. Freno di 12 richieste/minuto per IP, best effort per istanza: non è un sistema di autenticazione o una quota globale. CORS limita le pagine browser abilitate, non gli altri client.
-- La libreria resta nel browser. Il Worker riceve ISBN e link della scheda e non memorizza note, valutazioni o catalogo. Le query possono comparire nei normali log del servizio.
-- Le prove locali non dimostrano l'accesso dai server Cloudflare: i portali possono trattarli diversamente. La verifica dopo il deploy è necessaria prima di considerarlo operativo.
+Vedi **[SOURCES.md](SOURCES.md)** per stato delle fonti, risultati delle prove e limiti.
 
+L’app interroga separatamente IBS, Feltrinelli, Hoepli, Mondadori Store, Giunti e Amazon. Un link diretto dà priorità alla fonte indicata; le altre completano i campi vuoti. Le differenze vengono segnalate nell’anteprima, insieme alla provenienza dei valori proposti. Puoi dare priorità ai dati di un’altra fonte o correggere manualmente.
+
+Il login e il secret `ACCESS_CODE` non cambiano. Pubblica prima il Worker 0.6.0 e poi fai commit e push dell’app. La parte Koofr non è stata modificata.
+
+- Un’assenza o un blocco di una fonte non cancella i dati delle altre.
+- Amazon è sperimentale. Per ISBN con prefisso 979 serve un link Amazon diretto, perché non esiste la conversione a ISBN-10 usata per costruire il suo indirizzo di prodotto.
+- I redirect sono seguiti solo sullo stesso dominio e verso schede o immagini ammesse. Non viene eseguito JavaScript dei portali e non si risolvono CAPTCHA.
+- Per Hoepli le richieste sono distanziate di dieci secondi per istanza. La ricerca può quindi richiedere più tempo rispetto alle altre fonti.
+- Le schede con ISBN diverso o formato digitale vengono escluse. Lingua e sottotitolo rimangono vuoti se non dichiarati dalle fonti.
+- Cache delle schede positive per 24 ore nel nodo Cloudflare, anche sul link canonico di un redirect. Le ricerche Giunti e le immagini non sono conservate nella cache condivisa.
+- Limite best effort per istanza: 60 richieste metadati/copertine al minuto per IP e 12 richieste di login; dopo 12 password errate nell’arco di un minuto vengono bloccati anche gli altri endpoint protetti. Non è una quota globale distribuita.
+- Le nuove richieste dirette ai portali non ricevono la password Bookflix. Il catalogo resta nel browser e non viene inviato ai portali.
+- Le prove locali non sostituiscono una prova del Worker distribuito: accessibilità e tempi possono differire dai server Cloudflare.
 
 ## Errori frequenti
 

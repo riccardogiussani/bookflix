@@ -1,7 +1,3 @@
-# Aggiornamento 0.5.0: login iniziale
-
-Login, ricerca e copertine richiedono il secret Cloudflare `ACCESS_CODE`, da impostare personalmente seguendo **[worker/SETUP.md](worker/SETUP.md)** prima del deploy. Non inserire il codice nel repository o nella build del sito. I file locali sono aggiornati; il deploy resta a cura dell’utente.
-
 # Bookflix / Scaffale — prototipo scraper
 
 Applicazione personale in italiano, archivio locale nel browser. React, TypeScript, Dexie/IndexedDB e backup ZIP con immagini. L’interfaccia rimane su GitHub Pages. Un piccolo Cloudflare Worker recupera i metadati da pagine pubbliche di libri.
@@ -46,13 +42,13 @@ Il dominio del sito determina l’ambito dei dati IndexedDB. Prima di cambiare o
 
 Formato ZIP: `library.json` con `format: "scaffale"`, `version: 1`, `exportedAt`, `books`; immagini in `covers/<id>`. Autori e generi sono array, valutazione null o intero 1–5, pagine null o intero positivo, date ISO. ISBN-10 normalizzato a ISBN-13. Importazione con sostituzione completa dopo conferma e validazione, in transazione unica. Limiti: ZIP 200 MB, immagine 10 MB, 20.000 record.
 
-## Stato del prototipo
+## Stato attuale — 0.6.0
 
-- Archivio manuale, dettagli, prime righe orizzontali, scansione e integrazione scraper implementati.
-- Schede IBS: estrazione provata su due ISBN, con completamento degli autori dal contenuto della scheda. Lingua e sottotitolo non sono sempre dichiarati e restano vuoti.
-- Giunti: parser provato su HTML reale; ricerca automatica sperimentale. Osservati anche HTTP 429. Non si promette una ricerca universale affidabile.
-- Non sono implementati Amazon e una ricerca generale sul web. Per IBS serve il link diretto; la ricerca interna IBS non viene interrogata.
-- Il Worker accetta solo fonti e immagini note, verifica la corrispondenza ISBN, gestisce timeout, limita le dimensioni delle risposte e non esegue JavaScript dei portali. I redirect vengono rifiutati; in quel caso usare il link finale della scheda.
-- Cloudflare può ricevere risposte diverse rispetto al computer locale. Il funzionamento dal Worker pubblicato va verificato dopo il setup.
-- Restano da completare ottimizzazioni delle righe (fase 3), ricerca e filtri (fase 4), installazione PWA e cache offline dell’interfaccia.
-- Google Fonts è un caricamento esterno dell’interfaccia; in assenza di rete si usa il font di sistema.
+- Login iniziale con username libero e password verificata dal Worker. Nessun account separato per username. Il catalogo locale non è cifrato.
+- Inserimento manuale, scansione ISBN, archivio locale, backup ZIP, dettaglio e prime righe orizzontali implementati.
+- Fonti metadati: IBS, Feltrinelli, Hoepli, Mondadori Store, Giunti al Punto e Amazon (sperimentale). L’app combina solo edizioni con ISBN corrispondente e segnala i campi discordanti.
+- URL Worker già configurato. Usa il secret `ACCESS_CODE` esistente e pubblica il Worker aggiornato; nessun valore privato va nel repository. Istruzioni: **[worker/SETUP.md](worker/SETUP.md)**.
+- Ricerca automatica e importazione da link disponibili sulle sei fonti, con limitazioni specifiche. Risultati e prove: **[worker/SOURCES.md](worker/SOURCES.md)**.
+- Le prove locali non garantiscono l’accessibilità da Cloudflare. Non è stato eseguito il deploy dall’agente.
+- Koofr/WebDAV in sospeso: la persistenza continua a essere locale.
+- Restano da completare ottimizzazione della consultazione, ricerca/filtri della libreria, installazione PWA e cache offline dell’interfaccia.
