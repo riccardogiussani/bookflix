@@ -24,7 +24,7 @@ function candidate(raw:any,isbn:string):Candidate|undefined{
  if(Number.isInteger(raw.data.pages)&&raw.data.pages>0)data.pages=raw.data.pages;
  return {source:raw.source,url:url.href,data,covers:[]};
 }
-export const SOURCES=[{id:'amazon',name:'Amazon (sperimentale)',host:'www.amazon.it'},{id:'ibs',name:'IBS',host:'www.ibs.it'},{id:'feltrinelli',name:'Feltrinelli',host:'www.lafeltrinelli.it'},{id:'hoepli',name:'Hoepli',host:'www.hoepli.it'},{id:'mondadori',name:'Mondadori Store',host:'www.mondadoristore.it'},{id:'giunti',name:'Giunti al Punto',host:'giuntialpunto.it'}];
+export const SOURCES=[{id:'feltrinelli',name:'Feltrinelli',host:'www.lafeltrinelli.it'},{id:'ibs',name:'IBS',host:'www.ibs.it'},{id:'amazon',name:'Amazon (sperimentale)',host:'www.amazon.it'},{id:'hoepli',name:'Hoepli',host:'www.hoepli.it'},{id:'mondadori',name:'Mondadori Store',host:'www.mondadoristore.it'},{id:'giunti',name:'Giunti al Punto',host:'giuntialpunto.it'}];
 export const FIELD_LABELS:Record<string,string>={title:'Titolo',subtitle:'Sottotitolo',authors:'Autori',publisher:'Editore',year:'Anno',pages:'Pagine',language:'Lingua',genres:'Generi',description:'Trama'};
 function comparable(key:string,value:unknown):string{
  if(Array.isArray(value))return value.map(v=>comparable(key,v)).sort().join('|');

@@ -39,3 +39,35 @@ it('API v2 richiede sempre un JWT valido e il parametro libraryId non apre il ve
 it('corregge ISBN mantenendo ID, recensioni e posizione senza cambiare l’edizione originale',async()=>{const firstBook=(await api.save(first,book(),null)).book,rated=(await service({},actor('reviewer'),store).save(first,{...firstBook,...feedback()},firstBook.revision)).book;const corrected=(await api.save(first,{...rated,isbn:'9780140449136'},rated.revision)).book;expect(corrected.id).toBe(firstBook.id);expect(corrected.isbn).toBe('9780140449136');expect(corrected.reviews).toHaveLength(1);expect((await api.books(first)).books[0].reviews).toHaveLength(1);expect((await store.list('catalog')).length).toBe(2);expect((await store.get('catalog/'+key)).data.metadata.isbn).toBe('9788804668237');const added=(await api.save(first,book(),null)).book;expect(added.id).not.toBe(corrected.id);expect((await api.books(first)).books).toHaveLength(2);});
 it('può rimuovere l’ISBN da una scheda senza generare nuove edizioni a ogni modifica',async()=>{const b=(await api.save(first,book(),null)).book,noIsbn=(await api.save(first,{...b,isbn:''},b.revision)).book;await api.save(first,{...noIsbn,title:'Altro titolo'},noIsbn.revision);expect((await store.list('catalog')).length).toBe(2);expect((await api.books(first)).books[0].isbn).toBe('');});
 it('non permette di correggere un libro usando l’ISBN di un altro già presente',async()=>{const a=(await api.save(first,book(),null)).book;await api.save(first,book({isbn:'9780140449136'}),null);await expect(api.save(first,{...a,isbn:'9780140449136'},a.revision)).rejects.toMatchObject({status:409});});
+
+async function friendship(left='owner',right='other'){
+ const env={KOOFR_USERNAME:'test',KOOFR_PASSWORD:'fake'};const a=service(env,actor(left),store),b=service(env,actor(right),store);await a.profile();const profile=await b.profile();await a.addFriend(profile.friendCode);const request=(await b.people()).find(f=>f.user.id===left);return {a,b,request};
+}
+it('l’accettazione aggiunge entrambi come viewer alle rispettive librerie, non prima',async()=>{
+ const {a,b,request}=await friendship();expect((await a.listLibraries()).map(l=>l.id)).toEqual([first]);await b.respondFriend(request.id,true);
+ expect((await a.listLibraries()).find(l=>l.id===second).role).toBe('viewer');expect((await b.listLibraries()).find(l=>l.id===first).role).toBe('viewer');
+ const lib=await store.get('libraries/'+first);expect(lib.data.memberIds).toContain('other');await expect(b.save(first,book(),null)).rejects.toMatchObject({status:403});
+});
+it('non condivide librerie di cui un amico è soltanto editor e non riduce ruoli esistenti',async()=>{
+ const lib=await store.get('libraries/'+second);store.put(lib.path,{...lib.data,members:{other:'owner',owner:'editor'},memberIds:['other','owner']});const firstLib=await store.get('libraries/'+first);store.put(firstLib.path,{...firstLib.data,members:{...firstLib.data.members,other:'reviewer'},memberIds:[...firstLib.data.memberIds,'other']});
+ const third='cccccccc-cccc-4ccc-8ccc-cccccccccccc';store.put('libraries/'+third,{name:'Non mia',members:{stranger:'owner',other:'editor'},memberIds:['stranger','other'],archived:false});
+ const {b,request}=await friendship();await b.respondFriend(request.id,true);expect((await store.get('libraries/'+first)).data.members.other).toBe('reviewer');expect((await store.get('libraries/'+second)).data.members.owner).toBe('editor');expect((await store.get('libraries/'+third)).data.members.owner).toBeUndefined();
+});
+it('le nuove librerie includono gli amici accettati come viewer ma non le richieste pendenti',async()=>{
+ vi.stubGlobal('fetch',vi.fn(async()=>new Response(null,{status:201})));const {a,b,request}=await friendship();await b.respondFriend(request.id,true);const newcomer=service({},actor('new'),store),profile=await newcomer.profile();await a.addFriend(profile.friendCode);
+ const created=await a.createLibrary('Nuova casa'),lib=await store.get('libraries/'+created.id);expect(lib.data.members).toEqual({owner:'owner',other:'viewer'});expect(lib.data.memberIds.sort()).toEqual(['other','owner']);
+});
+it('allinea una volta le amicizie già esistenti, preservando poi le rimozioni manuali',async()=>{
+ const path='profiles/'+await hash('owner');store.put(path,{uid:'owner',name:'owner',email:'owner@example.invalid',friendCode:'OLD',createdAt:'2026-01-01T00:00:00Z'});store.put('friends/existing',{participantIds:['owner','other'],senderId:'owner',recipientId:'other',status:'accepted'});
+ await api.profile();let lib=await store.get('libraries/'+first);expect(lib.data.members.other).toBe('viewer');await api.changeMember(first,'other',null,lib.version);await api.profile();lib=await store.get(lib.path);expect(lib.data.members.other).toBeUndefined();expect((await store.get(path)).data.friendViewerPolicy).toBe(1);
+});
+it('non condivide le librerie archiviate',async()=>{
+ const doc=await store.get('libraries/'+second);store.put(doc.path,{...doc.data,archived:true});const {b,request}=await friendship();await b.respondFriend(request.id,true);expect((await store.get(doc.path)).data.members.owner).toBeUndefined();
+});
+it('una libreria creata durante l’accettazione viene comunque condivisa',async()=>{
+ vi.stubGlobal('fetch',vi.fn(async()=>new Response(null,{status:201})));const {a,b,request}=await friendship();let created;store.beforeCommit=async()=>{created=await a.createLibrary('Creata contemporaneamente');};await b.respondFriend(request.id,true);expect((await store.get('libraries/'+created.id)).data.members.other).toBe('viewer');
+});
+it('un limite membri impedisce l’accettazione senza condividere parzialmente le librerie',async()=>{
+ const {b,request}=await friendship();const lib=await store.get('libraries/'+first),members=Object.fromEntries([['owner','owner'],...Array.from({length:99},(_,i)=>['u'+i,'viewer'])]);store.put(lib.path,{...lib.data,members,memberIds:Object.keys(members)});
+ await expect(b.respondFriend(request.id,true)).rejects.toMatchObject({status:400});expect((await store.get('friends/'+request.id)).data.status).toBe('pending');expect((await store.get('libraries/'+second)).data.members.owner).toBeUndefined();
+});

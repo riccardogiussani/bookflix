@@ -4,7 +4,7 @@
 
 L’app effettua una richiesta separata al Worker per ciascuna fonte. Questo isola errori e lavoro di estrazione, invece di analizzare sei grandi pagine in una sola richiesta sul Worker gratuito. La password autentica ciascuna richiesta e non viene inoltrata ai portali.
 
-Priorità iniziale: eventuale link esplicito, poi Amazon, IBS, Feltrinelli, Hoepli, Mondadori Store e Giunti. Anche la copertina viene cercata prima su Amazon. Una fonte successiva completa i campi vuoti; non sovrascrive quelli già scelti. L’anteprima mostra le differenze e la provenienza dei dati proposti. “Usa i dati di…” cambia la priorità, mantenendo il completamento dei campi mancanti dalle altre fonti. Le correzioni manuali restano disponibili prima del salvataggio. La provenienza descrive i dati recuperati, non le successive correzioni manuali.
+Priorità iniziale: eventuale link esplicito, poi Feltrinelli, IBS, Amazon, Hoepli, Mondadori Store e Giunti. Anche la copertina viene cercata prima su Feltrinelli. Una fonte successiva completa i campi vuoti; non sovrascrive quelli già scelti. L’anteprima mostra le differenze e la provenienza dei dati proposti. “Usa i dati di…” cambia la priorità, mantenendo il completamento dei campi mancanti dalle altre fonti. Le correzioni manuali restano disponibili prima del salvataggio. La provenienza descrive i dati recuperati, non le successive correzioni manuali.
 
 La corrispondenza ISBN deve essere dichiarata nella scheda: un ISBN nell’URL, una raccomandazione o una recensione non sono sufficienti. ISBN-10 e ISBN-13 equivalenti vengono riconosciuti. Non vengono importati prezzi, disponibilità o recensioni dei clienti.
 

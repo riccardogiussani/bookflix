@@ -76,7 +76,7 @@ Poi commit e push dei sorgenti pubblici, nuovi file e test. Non includere `.env`
 5. Modifica posizione o titolo nella seconda libreria: la prima deve restare invariata. Le correzioni sono locali alla libreria; la scheda centrale non viene sovrascritta.
 6. Rimuovi il libro dalla seconda libreria: resta nella prima e nel catalogo centrale.
 
-Il recupero dai portali mantiene l’ordine Amazon e poi le altre fonti. Una prenotazione temporanea coordina le ricerche simultanee dello stesso ISBN. Se il browser si chiude durante il recupero, scade dopo tre minuti. Una ricerca senza risultati non crea una scheda centrale vuota.
+Il recupero dai portali dà priorità a Feltrinelli e completa i dati mancanti con le altre fonti. Una prenotazione temporanea coordina le ricerche simultanee dello stesso ISBN. Se il browser si chiude durante il recupero, scade dopo tre minuti. Una ricerca senza risultati non crea una scheda centrale vuota.
 
 In Koofr le nuove immagini sono in `.booflix/catalog/covers/<SHA256>.<estensione>`. Contenuti identici riusano lo stesso file. Viene creata anche `.booflix/<UUID>/` per ogni nuova libreria; i suoi dati sono in Firestore, non in un nuovo `books.json`.
 
@@ -84,7 +84,9 @@ In Koofr le nuove immagini sono in `.booflix/catalog/covers/<SHA256>.<estensione
 
 1. Crea un secondo account (Google o email verificata), poi apri **Librerie e amici** da entrambi gli account.
 2. Invia una richiesta tramite email o codice amico. Il destinatario deve accettarla.
-3. Aggiungi l’amico alla libreria; riceve inizialmente il ruolo reviewer, modificabile subito dal selettore.
+3. Quando il destinatario accetta, entrambi vengono aggiunti automaticamente come viewer alle librerie di cui l’altro è owner. Anche le nuove librerie includono gli amici già accettati come viewer. I ruoli già presenti restano invariati e sono modificabili dal selettore. Le librerie in cui sei soltanto editor/reviewer/viewer non vengono condivise con i tuoi amici.
+
+Le amicizie precedenti a questo aggiornamento vengono allineate una sola volta al successivo accesso di ciascun proprietario. Le rimozioni manuali effettuate dopo l’allineamento restano rispettate. Le librerie archiviate non vengono condivise. Se una libreria ha già 100 membri, l’accettazione viene interrotta con un messaggio e nessuna condivisione parziale.
 4. **Viewer:** vede libri, voti e recensioni, ma non può scrivere.
 5. **Reviewer:** aggiunge/modifica/rimuove i propri voti e recensioni; non modifica libri, posizioni o copertine.
 6. **Editor e owner:** gestiscono libri, nome, membri e permessi con gli stessi poteri. Deve rimanere almeno un owner.

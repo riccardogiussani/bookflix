@@ -35,7 +35,7 @@ Poi commit e push su `main` pubblicano Pages tramite il workflow di test e build
 
 ## Raccolta conservata e nuovi account
 
-Dopo il login ogni utente può creare una libreria o aprire quelle condivise con lui. Da **Librerie e amici** invia richieste via email/codice e assegna ruoli owner, editor, reviewer o viewer. Owner ed editor hanno gli stessi poteri di gestione; deve restare almeno un owner.
+Dopo il login ogni utente può creare una libreria o aprire quelle condivise con lui. Da **Librerie e amici** invia richieste via email/codice e assegna ruoli owner, editor, reviewer o viewer. Accettando l’amicizia, entrambi accedono come viewer alle librerie di cui l’altro è owner, incluse quelle create in seguito; i ruoli esistenti restano invariati. Owner ed editor hanno gli stessi poteri di gestione; deve restare almeno un owner.
 
 `BOOKFLIX_OWNER_UID` riguarda solo l’importazione esplicita della raccolta Koofr precedente: non assegna diritti sulle nuove librerie. La sorgente resta conservata.
 
@@ -45,7 +45,7 @@ La cache locale resta non cifrata. Login e scritture richiedono rete. La PWA con
 
 ## Libri, recensioni e voti
 
-Aggiungi libro apre la fotocamera a tutto schermo. Inserimento manuale apre il modulo; il pulsante ↻ accanto a ISBN avvia il recupero da Amazon e dalle altre fonti supportate. Il modulo permette di correggere dati e copertina prima del salvataggio e impedisce duplicati ISBN. Posizione è facoltativa e usa le opzioni presenti nel menu.
+Aggiungi libro apre la fotocamera a tutto schermo. Inserimento manuale apre il modulo; il pulsante ↻ accanto a ISBN avvia il recupero da Feltrinelli e dalle altre fonti supportate. Il modulo permette di correggere dati e copertina prima del salvataggio e impedisce duplicati ISBN. Posizione è facoltativa e usa le opzioni presenti nel menu.
 
 La home mostra righe di copertine per genere e aggiunti di recente. La ricerca immediata trova metadati, posizione e recensioni, senza nuove richieste di rete.
 
