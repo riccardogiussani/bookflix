@@ -1,4 +1,4 @@
-# Worker Bookflix 0.8.0 — utenti personali e Koofr
+# Worker Bookflix 0.9.0 — utenti personali e Koofr
 
 Per configurare i sette utenti e le loro password segui **[USERS.md](USERS.md)**. Il `.env` precompilato è nella radice del repository; le password vengono scelte dall’utente. Lo script locale prepara hash e chiave di sessione senza pubblicare nulla. Secret e deploy vengono gestiti personalmente dall’utente.
 

@@ -34,7 +34,7 @@ npx wrangler deploy --config .\worker\wrangler.jsonc
 
 Il file `worker/koofr.mjs` deve rimanere insieme a `scraper.mjs`: Wrangler include automaticamente entrambi. Non usare il deploy automatico Vite dalla radice senza `--config`.
 
-Apri https://bookflix-scraper.riciriccio.workers.dev/health e controlla `version: "0.8.0"` e `storage.configured: true`. Questo conferma la presenza delle impostazioni, **non** la correttezza delle credenziali: quella viene verificata quando l’app legge o salva la raccolta.
+Apri https://bookflix-scraper.riciriccio.workers.dev/health e controlla `version: "0.9.0"` e `storage.configured: true`. Questo conferma la presenza delle impostazioni, **non** la correttezza delle credenziali: quella viene verificata quando l’app legge o salva la raccolta.
 
 ## 4. Pubblica l’app
 
@@ -81,4 +81,4 @@ Nessuna prova con il tuo account Koofr è stata eseguita dall’agente. I contro
 
 ## Aggiornamento a recensioni
 
-L’app aggiornata conserva le recensioni con testo, autore (username corrente), data di creazione e modifica nel catalogo. Le vecchie note e lo stato di lettura vengono rimossi dalla cache e dal catalogo cloud al caricamento, senza convertirli in recensioni. La pulizia cloud usa If-Match e non sovrascrive una versione cambiata da un altro dispositivo. Per le recensioni con utenti personali occorre il Worker 0.8.0 e i secret descritti in [USERS.md](USERS.md). La valutazione a stelle resta un campo del libro.
+L’app aggiornata conserva le recensioni con testo, autore (username corrente), data di creazione e modifica nel catalogo. Le vecchie note e lo stato di lettura vengono rimossi dalla cache e dal catalogo cloud al caricamento, senza convertirli in recensioni. La pulizia cloud usa If-Match e non sovrascrive una versione cambiata da un altro dispositivo. Per le recensioni con utenti personali occorre il Worker 0.9.0 e i secret descritti in [USERS.md](USERS.md). Le valutazioni sono personali e protette dall’ID utente; la scheda del libro mostra la media.

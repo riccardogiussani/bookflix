@@ -2,10 +2,11 @@ import Dexie, {type Table} from 'dexie';
 import JSZip from 'jszip';
 
 export type Review={id:string;author:string;authorId?:string;text:string;createdAt:string;updatedAt:string};
+export type Rating={userId:string;author:string;value:number;createdAt:string;updatedAt:string};
 export type Book = {
  id:string; title:string; subtitle:string; authors:string[]; publisher:string;
  year:string; pages:number|null; language:string; genres:string[]; description:string;
- isbn:string; rating:number|null; reviews:Review[]; location:string;
+ isbn:string; ratings:Rating[]; reviews:Review[]; location:string;
  createdAt:string; updatedAt:string; cover?:Blob;
 };
 export const locations=['Soggiorno','Taverna','Camere'] as const;
@@ -15,7 +16,7 @@ export function newId():string {
  const bytes=crypto.getRandomValues(new Uint8Array(16));bytes[6]=(bytes[6]&15)|64;bytes[8]=(bytes[8]&63)|128;
  const hex=[...bytes].map(b=>b.toString(16).padStart(2,'0')).join('');return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
 }
-export function blankBook():Book {const now=new Date().toISOString();return {id:newId(),title:'',subtitle:'',authors:[],publisher:'',year:'',pages:null,language:'',genres:[],description:'',isbn:'',rating:null,reviews:[],location:'',createdAt:now,updatedAt:now};}
+export function blankBook():Book {const now=new Date().toISOString();return {id:newId(),title:'',subtitle:'',authors:[],publisher:'',year:'',pages:null,language:'',genres:[],description:'',isbn:'',ratings:[],reviews:[],location:'',createdAt:now,updatedAt:now};}
 export function normalizeISBN(raw:string):string {
  const s=raw.replace(/[\s-]/g,'').toUpperCase(); if(!s)return '';
  if(s.length===10 && /^\d{9}[\dX]$/.test(s)){
@@ -25,7 +26,7 @@ export function normalizeISBN(raw:string):string {
  if(!/^(978|979)\d{10}$/.test(s)||[...s].reduce((n,c,i)=>n+Number(c)*(i%2?3:1),0)%10)throw Error('ISBN non valido: inserisci un ISBN-10 o ISBN-13.');
  return s;
 }
-export class Library extends Dexie {books!:Table<Book,string>;sync!:Table<{key:string;value:unknown},string>; constructor(name='scaffale-library'){super(name);this.version(1).stores({books:'id,&isbnKey,createdAt,*genres,*authors,status'});this.version(2).stores({sync:'key'});this.version(3).stores({books:'id,&isbnKey,createdAt,*genres,*authors'}).upgrade(async tx=>{await tx.table('books').toCollection().modify(b=>{delete b.notes;delete b.status;b.reviews??=[];});await tx.table('sync').toCollection().modify(row=>{for(const b of row.value?.catalog?.books||[]){delete b.notes;delete b.status;b.reviews??=[];}});});}}
+export class Library extends Dexie {books!:Table<Book,string>;sync!:Table<{key:string;value:unknown},string>; constructor(name='scaffale-library'){super(name);this.version(1).stores({books:'id,&isbnKey,createdAt,*genres,*authors,status'});this.version(2).stores({sync:'key'});this.version(3).stores({books:'id,&isbnKey,createdAt,*genres,*authors'}).upgrade(async tx=>{await tx.table('books').toCollection().modify(b=>{delete b.notes;delete b.status;b.reviews??=[];});await tx.table('sync').toCollection().modify(row=>{for(const b of row.value?.catalog?.books||[]){delete b.notes;delete b.status;b.reviews??=[];}});});this.version(4).stores({}).upgrade(async tx=>{const clean=(b:any)=>{delete b.rating;delete b.legacyRating;b.ratings??=[];};await tx.table('books').toCollection().modify(clean);await tx.table('sync').toCollection().modify(row=>{for(const b of row.value?.catalog?.books||[])clean(b);});});}}
 export const db=new Library('bookflix-koofr-cache');
 function record(b:Book){const {isbnKey,...clean}=b as Book & {isbnKey?:string};return {...clean,...(b.isbn?{isbnKey:b.isbn}:{})};}
 export function validate(b:Book):Book {
@@ -33,12 +34,13 @@ export function validate(b:Book):Book {
  for(const k of ['subtitle','publisher','year','language','description','isbn','createdAt','updatedAt'] as const)if(typeof b[k]!=='string')throw Error('Formato dei dati non valido.');
  if(b.location!==undefined&&typeof b.location!=='string')throw Error('La posizione deve essere un testo.');
  for(const arr of [b.authors,b.genres])if(!Array.isArray(arr)||arr.some(v=>typeof v!=='string'))throw Error('Autori o generi non validi.');
- if(b.rating!==null&&(!Number.isInteger(b.rating)||b.rating<1||b.rating>5)||b.pages!==null&&(!Number.isInteger(b.pages)||b.pages<1))throw Error('Valutazione o numero di pagine non valido.');
+ if(b.pages!==null&&(!Number.isInteger(b.pages)||b.pages<1))throw Error('Valutazione o numero di pagine non valido.');
  if(!Number.isFinite(Date.parse(b.createdAt))||!Number.isFinite(Date.parse(b.updatedAt)))throw Error('Date non valide.');
  const rawReviews=b.reviews===undefined?[]:b.reviews;if(!Array.isArray(rawReviews)||rawReviews.length>1000)throw Error('Recensioni non valide.');
  const reviewIds=new Set<string>();const reviews=rawReviews.map(r=>{if(!r||typeof r.id!=='string'||!r.id||reviewIds.has(r.id)||r.authorId!==undefined&&(typeof r.authorId!=='string'||!r.authorId||r.authorId.length>100)||typeof r.author!=='string'||!r.author.trim()||r.author.length>80||typeof r.text!=='string'||!r.text.trim()||r.text.length>10000||typeof r.createdAt!=='string'||!Number.isFinite(Date.parse(r.createdAt))||typeof r.updatedAt!=='string'||!Number.isFinite(Date.parse(r.updatedAt)))throw Error('Recensione non valida.');reviewIds.add(r.id);return {id:r.id,...(r.authorId?{authorId:r.authorId}:{}),author:r.author.trim(),text:r.text.trim(),createdAt:r.createdAt,updatedAt:r.updatedAt};});
- const {notes:removedNotes,status:removedStatus,...clean}=b as Book&{notes?:unknown;status?:unknown};
- return {...clean,reviews,location:b.location??'',title:b.title.trim(),isbn:normalizeISBN(b.isbn),genres:[...new Set(b.genres.map(s=>s.trim()).filter(Boolean))],authors:b.authors.map(s=>s.trim()).filter(Boolean)};
+ const rawRatings=b.ratings===undefined?[]:b.ratings;if(!Array.isArray(rawRatings)||rawRatings.length>100)throw Error('Valutazioni non valide.');const ratingUsers=new Set<string>();const ratings=rawRatings.map(r=>{if(!r||typeof r.userId!=='string'||!r.userId||r.userId.length>100||ratingUsers.has(r.userId)||typeof r.author!=='string'||!r.author.trim()||r.author.length>80||!Number.isInteger(r.value)||r.value<1||r.value>5||typeof r.createdAt!=='string'||!Number.isFinite(Date.parse(r.createdAt))||typeof r.updatedAt!=='string'||!Number.isFinite(Date.parse(r.updatedAt)))throw Error('Valutazione non valida.');ratingUsers.add(r.userId);return {userId:r.userId,author:r.author.trim(),value:r.value,createdAt:r.createdAt,updatedAt:r.updatedAt};});
+ const {notes:removedNotes,status:removedStatus,rating:removedRating,legacyRating:removedLegacyRating,...clean}=b as Book&{notes?:unknown;status?:unknown;rating?:unknown;legacyRating?:unknown};
+ return {...clean,reviews,ratings,location:b.location??'',title:b.title.trim(),isbn:normalizeISBN(b.isbn),genres:[...new Set(b.genres.map(s=>s.trim()).filter(Boolean))],authors:b.authors.map(s=>s.trim()).filter(Boolean)};
 }
 export async function saveBook(input:Book,database=db){const b=validate({...input,updatedAt:new Date().toISOString()});checkLocation(b.location);await database.transaction('rw',database.books,async()=>{
  if(b.isbn){const existing=await database.books.where('isbnKey').equals(b.isbn).first();if(existing&&existing.id!==b.id)throw Error('Questo ISBN è già presente in libreria.');}

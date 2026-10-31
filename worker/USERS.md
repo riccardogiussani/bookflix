@@ -1,4 +1,4 @@
-# Utenti personali Bookflix — Worker 0.8.0
+# Utenti personali Bookflix — Worker 0.9.0
 
 Utenti predisposti: **Riccardo, Corrado, Alessandra, Sara, Giulia, Dario, Alessia**. Gli username precompilati sono i nomi con iniziale maiuscola; il login ignora le maiuscole nello username, mentre la password è esatta. Non ci sono registrazione, email, recupero password o un nuovo database utenti.
 
@@ -42,7 +42,7 @@ npx wrangler deploy --config .\worker\wrangler.jsonc
 
 Il caricamento imposta `AUTH_USERS_JSON` e `AUTH_SESSION_SECRET`. I secret Koofr esistenti (`KOOFR_USERNAME`, `KOOFR_PASSWORD`) restano invariati. `ACCESS_CODE` non viene più accettato dalla nuova versione: può restare configurato senza effetto oppure essere rimosso in seguito.
 
-Apri https://bookflix-scraper.riciriccio.workers.dev/health e verifica `version: "0.8.0"`, `authentication.mode: "users"` e `authentication.configured: true`. È un controllo della presenza delle impostazioni, non una verifica di ogni password.
+Apri https://bookflix-scraper.riciriccio.workers.dev/health e verifica `version: "0.9.0"`, `authentication.mode: "users"` e `authentication.configured: true`. È un controllo della presenza delle impostazioni, non una verifica di ogni password.
 
 ## 4. Aggiorna Pages
 
@@ -97,3 +97,7 @@ I test automatici usano password di prova e un servizio WebDAV simulato; nessuna
 Riferimenti: https://developers.cloudflare.com/workers/configuration/secrets/ e https://developers.cloudflare.com/workers/runtime-apis/web-crypto/
 
 Per cambiare le maiuscole o il nome dello username modifica `BOOKFLIX_USER_...` nel `.env`, riesegui `node scripts/configure-users.mjs` e ricarica il JSON con `wrangler secret bulk`. Non serve ripubblicare il codice del Worker per il solo aggiornamento dei secret. Gli ID non cambiano e le recensioni restano attribuite allo stesso utente. Il nome visualizzato resta quello del profilo (es. Riccardo), indipendente dalla grafia dello username.
+
+## Valutazioni personali — 0.9.0
+
+Non servono nuovi secret: pubblica il codice aggiornato con `npx wrangler deploy --config .\worker\wrangler.jsonc`, verifica 0.9.0 su health e aggiorna Pages con commit e push. Un voto per utente/libro, da 1 a 5; autore e date sono controllati dal Worker. L’app mostra media e numero dei votanti nel dettaglio e sulle copertine. I vecchi voti condivisi vengono eliminati senza migrazione a utenti. Anche la cancellazione di un libro o il ripristino di un backup non possono eliminare voti altrui.

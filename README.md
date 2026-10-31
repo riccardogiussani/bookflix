@@ -19,7 +19,7 @@ npm run dev
 - **Login e scraper:** [worker/SETUP.md](worker/SETUP.md).
 - **Fonti metadati:** [worker/SOURCES.md](worker/SOURCES.md).
 
-Configurazione dei secret e deploy del Worker sono da eseguire personalmente dall’utente. Pubblica prima il Worker 0.8.0, poi fai commit e push dell’app su `main`. GitHub Actions esegue test e build e pubblica su Pages. Non aggiungere credenziali al repository.
+Configurazione dei secret e deploy del Worker sono da eseguire personalmente dall’utente. Pubblica prima il Worker 0.9.0, poi fai commit e push dell’app su `main`. GitHub Actions esegue test e build e pubblica su Pages. Non aggiungere credenziali al repository.
 
 Il Worker si pubblica dalla radice con:
 
@@ -71,14 +71,24 @@ Nel modulo di aggiunta manuale la ricerca automatica si avvia dal pulsante ↻ a
 
 ## Recensioni
 
-Nel dettaglio del libro le recensioni appaiono come commenti con autore, data e testo. Il modulo firma automaticamente con lo username corrente, ricordato dal login. Con lo stesso ID utente puoi modificare ed eliminare i tuoi commenti; il Worker controlla la proprietà anche sul catalogo completo. La valutazione a stelle del libro resta separata. Sono configurati i sette utenti personali, senza registrazioni o email. Ognuno accede con la propria password e la sessione ricordata conserva un token, senza memorizzare la password nel browser.
+Nel dettaglio del libro le recensioni appaiono come commenti con autore, data e testo. Il modulo firma automaticamente con lo username corrente, ricordato dal login. Con lo stesso ID utente puoi modificare ed eliminare i tuoi commenti; il Worker controlla la proprietà anche sul catalogo completo. La valutazione a stelle è personale: ogni utente ha un solo voto per libro e la scheda mostra la media. Sono configurati i sette utenti personali, senza registrazioni o email. Ognuno accede con la propria password e la sessione ricordata conserva un token, senza memorizzare la password nel browser.
 
 Recensioni e autori sono conservati su Koofr, inclusi nel backup ZIP e ricercabili nel catalogo. I conflitti non cancellano il testo che stai scrivendo: aggiorna la raccolta e riprova.
 
 Le vecchie note vengono eliminate, senza convertirle in recensioni. Al primo avvio aggiornato viene ripulita la cache; al primo caricamento online viene ripulito anche il catalogo Koofr con controllo della versione. Se il salvataggio di pulizia fallisce, l’app segnala l’errore e riprova al successivo aggiornamento. Lo stato di lettura è rimosso dal modulo, dalle copertine, dalle righe della home e dai dati. I vecchi ZIP restano importabili: note e stato vengono scartati. I file di backup già scaricati non vengono modificati.
 
-Verifica: apri un libro e pubblica una recensione; controlla firma e data, modifica il testo, riapri da un altro dispositivo, esporta/importa il backup e prova l’eliminazione. Accedendo con un altro utente puoi leggere gli altri commenti ma non modificarli o eliminarli. Per il passaggio agli utenti personali occorre configurare i nuovi secret, pubblicare il Worker 0.8.0 e poi aggiornare Pages: [guida utenti](worker/USERS.md).
+Verifica: apri un libro e pubblica una recensione; controlla firma e data, modifica il testo, riapri da un altro dispositivo, esporta/importa il backup e prova l’eliminazione. Accedendo con un altro utente puoi leggere gli altri commenti ma non modificarli o eliminarli. Per il passaggio agli utenti personali occorre configurare i nuovi secret, pubblicare il Worker 0.9.0 e poi aggiornare Pages: [guida utenti](worker/USERS.md).
 
 ## Configurare le password dal .env
 
 Apri il `.env` nella radice, con gli username di Riccardo, Corrado, Alessandra, Sara, Giulia, Dario e Alessia già compilati, e inserisci personalmente le password vuote (almeno 12 caratteri). Il file non viene versionato. Poi esegui `node scripts/configure-users.mjs` per preparare gli hash, e segui [worker/USERS.md](worker/USERS.md) per caricarli e pubblicare il Worker. Lo script non genera password utente e non le stampa. Solo `.env.example`, con valori vuoti, deve entrare nel repository.
+
+## Valutazioni personali
+
+Ogni utente può dare un solo voto intero da 1 a 5 a ciascun libro, modificarlo o rimuoverlo dal dettaglio in “La tua valutazione”, anche senza recensione. La scheda e le copertine del catalogo mostrano la media dei voti personali e il numero di valutazioni; se non ci sono voti viene mostrato “Nessuna valutazione”. I voti altrui non sono modificabili, neppure tramite invio dell’intero catalogo, eliminazione del libro o importazione di un backup. Questo segue la stessa protezione delle recensioni.
+
+Le vecchie valutazioni condivise (`rating` ed eventuale `legacyRating`) vengono eliminate dalla cache, dai backup importati e da Koofr al primo caricamento aggiornato, senza attribuirle ad alcun utente. La pulizia cloud controlla la versione del catalogo. I voti personali sono inclusi nei backup ZIP e conservano gli ID degli autori.
+
+Per attivare pubblica il Worker 0.9.0 e poi fai commit e push dell’app. Non serve rigenerare o ricaricare password e secret. Se il Worker non è aggiornato l’app segnala l’aggiornamento richiesto e impedisce le scritture che richiedono le nuove protezioni.
+
+Per verificare: come Riccardo dai 5 a un libro; come Sara dai 2; dopo Aggiorna raccolta deve comparire 3,5/5 con 2 valutazioni. Modifica o rimuovi il voto di Sara e verifica la nuova media. Controlla anche che esportazione e reimportazione conservino i voti personali. I backup non possono essere usati per cancellare o introdurre voti a nome di altri utenti.

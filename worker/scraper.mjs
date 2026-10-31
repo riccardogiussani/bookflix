@@ -140,7 +140,7 @@ export default {async fetch(request,env={},context={waitUntil:()=>{}}){
  if(origin&&!allowed.includes(origin))return json({error:'Origine non autorizzata.'},403);
  if(request.method==='OPTIONS')return new Response(null,{status:204,headers});
  if(!['GET','PUT','POST'].includes(request.method))return json({error:'Metodo non consentito.'},405);
- const url=new URL(request.url);if(url.pathname==='/health')return json({ok:true,version:'0.8.0',storage:{provider:'Koofr',configured:!!(env.KOOFR_USERNAME&&env.KOOFR_PASSWORD&&env.KOOFR_COLLECTION_ID)},authentication:{required:true,configured:!!(env.AUTH_USERS_JSON&&env.AUTH_SESSION_SECRET),mode:'users'},sources:Object.values(SOURCE_NAMES),automatic:['ibs','feltrinelli','hoepli','mondadori','giunti','amazon (ISBN 978)']});
+ const url=new URL(request.url);if(url.pathname==='/health')return json({ok:true,version:'0.9.0',storage:{provider:'Koofr',configured:!!(env.KOOFR_USERNAME&&env.KOOFR_PASSWORD&&env.KOOFR_COLLECTION_ID)},authentication:{required:true,configured:!!(env.AUTH_USERS_JSON&&env.AUTH_SESSION_SECRET),mode:'users'},sources:Object.values(SOURCE_NAMES),automatic:['ibs','feltrinelli','hoepli','mondadori','giunti','amazon (ISBN 978)']});
  const library=url.pathname==='/library'||url.pathname.startsWith('/library/');
  if(!library&&!(url.pathname==='/auth/login'&&request.method==='POST')&&request.method!=='GET')return json({error:'Metodo non consentito.'},405);
  if(!library&&!['/lookup','/cover','/auth/check','/auth/login'].includes(url.pathname))return json({error:'Percorso non trovato.'},404);

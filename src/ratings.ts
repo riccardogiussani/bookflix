@@ -1,0 +1,4 @@
+import {validate,type Book} from './data';
+import type {ReviewIdentity} from './reviews';
+export function ratingSummary(book:Pick<Book,'ratings'>){const ratings=book.ratings||[];return {count:ratings.length,average:ratings.length?ratings.reduce((n,r)=>n+r.value,0)/ratings.length:null};}
+export function changeRating(book:Book,user:ReviewIdentity,value:number|null):Book{if(!user.id||!user.name.trim())throw Error('Accedi prima di valutare il libro.');if(value!==null&&(!Number.isInteger(value)||value<1||value>5))throw Error('Scegli un voto da 1 a 5.');const existing=book.ratings?.find(r=>r.userId===user.id),now=new Date().toISOString();const ratings=(book.ratings||[]).filter(r=>r.userId!==user.id);if(value!==null)ratings.push({userId:user.id,author:existing?.author||user.name.trim(),value,createdAt:existing?.createdAt||now,updatedAt:now});return validate({...book,ratings});}

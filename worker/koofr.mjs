@@ -1,3 +1,4 @@
+import {identifyRatings,protectRatings} from './rating-policy.mjs';
 import {identifyReviews,protectReviews,ReviewError} from './review-policy.mjs';
 // Fixed Koofr destination: no caller-controlled host, credentials or arbitrary DAV paths.
 const ROOT='https://app.koofr.net/dav/Koofr/.booflix';
@@ -37,9 +38,9 @@ export async function koofr(request,env,headers,identity){
   const url=new URL(request.url),path=url.pathname;
   if(path==='/library/info'&&request.method==='GET')return json({id,name:'La mia libreria'});
   if(path==='/library'&&request.method==='GET'){
-   const r=await dav(base+'/books.json');if(r.status===404){await r.body?.cancel();return json({id,revision:null,catalog:{format:'bookflix-cloud',version:1,books:[]}});}
+   const r=await dav(base+'/books.json');if(r.status===404){await r.body?.cancel();return json({id,revision:null,capabilities:{personalRatings:true},catalog:{format:'bookflix-cloud',version:1,books:[]}});}
    await check(r);const revision=r.headers.get('ETag');if(!revision||revision.startsWith('W/'))throw new DavError('Koofr non restituisce una versione affidabile del catalogo: scrittura disabilitata.');
-   const data=catalog(JSON.parse(new TextDecoder().decode(await bytes(r,LIMIT))));return json({id,revision,catalog:identifyReviews(data,identity.users)});
+   const data=catalog(JSON.parse(new TextDecoder().decode(await bytes(r,LIMIT))));return json({id,revision,needsCleanup:data.books.some(b=>'rating' in b||'legacyRating' in b),capabilities:{personalRatings:true},catalog:identifyRatings(identifyReviews(data,identity.users))});
   }
   if(path==='/library'&&request.method==='PUT'){
    const revision=request.headers.get('If-Match'),create=request.headers.get('If-None-Match')==='*';
@@ -48,7 +49,7 @@ export async function koofr(request,env,headers,identity){
    const previous=await dav(base+'/books.json');let old={format:'bookflix-cloud',version:1,books:[]};
    if(previous.status===404){await previous.body?.cancel();if(!create)return json({error:'La raccolta non è più presente. Aggiornala prima di salvare.'},409);}
    else{await check(previous);if(create||previous.headers.get('ETag')!==revision){await previous.body?.cancel();return json({error:'La raccolta è cambiata su un altro dispositivo. Aggiornala prima di salvare.'},409);}old=catalog(JSON.parse(new TextDecoder().decode(await bytes(previous,LIMIT))));}
-   const data=protectReviews(old,incoming,identity),body=JSON.stringify(data);await folders();
+   const data=protectRatings(old,protectReviews(old,incoming,identity),identity),body=JSON.stringify(data);await folders();
    const r=await dav(base+'/books.json','PUT',{headers:{'Content-Type':'application/json',...(create?{'If-None-Match':'*'}:{'If-Match':revision})},body});
    if(r.status===412){await r.body?.cancel();return json({error:'La raccolta è cambiata su un altro dispositivo. Aggiornala prima di riprovare; le modifiche nel modulo sono conservate.'},409);}
    await check(r);let next=r.headers.get('ETag');await r.body?.cancel();

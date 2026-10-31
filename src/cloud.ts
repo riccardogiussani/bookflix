@@ -13,7 +13,8 @@ async function api(path:string,code:string,options:RequestInit={}){
  if(!r.ok){let message='Il servizio Koofr non è disponibile.';try{message=(await r.json()).error||message;}catch{}if(r.status===401)throw new AccessDeniedError(message);if(r.status===409)throw new CloudConflict(message);throw new CloudError(message,r.status);}return r;
 }
 async function parallel<T,R>(items:T[],fn:(item:T)=>Promise<R>):Promise<R[]>{const result:R[]=new Array(items.length);let next=0;await Promise.all(Array.from({length:Math.min(4,items.length)},async()=>{while(next<items.length){const i=next++;result[i]=await fn(items[i]);}}));return result;}
-function checked(raw:Snapshot):Snapshot {
+function checked(raw:Snapshot,remote=false):Snapshot {
+ if(remote&&(raw as Snapshot&{capabilities?:{personalRatings?:boolean}})?.capabilities?.personalRatings!==true)throw Error('Aggiorna il Worker alla versione 0.9.0 per le valutazioni personali.');
  if(!raw||!UUID.test(raw.id)||raw.revision!==null&&typeof raw.revision!=='string'||raw.catalog?.format!=='bookflix-cloud'||raw.catalog.version!==1||!Array.isArray(raw.catalog.books)||raw.catalog.books.length>20000)throw Error('Il catalogo su Koofr non è valido. Nessun dato locale è stato sostituito.');
  const ids=new Set(),isbns=new Set();
  const books=raw.catalog.books.map(row=>{const {coverPath,coverHash,cover:ignored,...fields}=row as Row&{cover?:unknown};const b=validate(fields);if(!UUID.test(b.id)||ids.has(b.id)||b.isbn&&isbns.has(b.isbn))throw Error('Il catalogo contiene identificativi o ISBN duplicati.');ids.add(b.id);if(b.isbn)isbns.add(b.isbn);
@@ -23,7 +24,7 @@ function checked(raw:Snapshot):Snapshot {
 async function snapshot():Promise<Snapshot|undefined>{return (await db.sync.get('snapshot'))?.value as Snapshot|undefined;}
 async function cache(s:Snapshot,books:CachedBook[]){await db.transaction('rw',[db.books,db.sync],async()=>{await db.books.clear();await db.books.bulkPut(books.map(b=>({...b,...(b.isbn?{isbnKey:b.isbn}:{})})));await db.sync.put({key:'snapshot',value:s});});}
 export async function refreshCloud(code:string){
- const raw=await (await api('/library',code)).json();const remote=checked(raw);const legacy=raw.catalog.books.some((b:Record<string,unknown>)=>'notes' in b||'status' in b);const previous=await snapshot();const cached=previous?.id===remote.id?await db.books.toArray() as CachedBook[]:[];const byId=new Map(cached.map(b=>[b.id,b]));
+ const raw=await (await api('/library',code)).json();const remote=checked(raw,true);const legacy=raw.needsCleanup===true||raw.catalog.books.some((b:Record<string,unknown>)=>'notes' in b||'status' in b);const previous=await snapshot();const cached=previous?.id===remote.id?await db.books.toArray() as CachedBook[]:[];const byId=new Map(cached.map(b=>[b.id,b]));
  const books=await parallel(remote.catalog.books,async row=>{const {coverPath,coverHash,...fields}=row;const prior=byId.get(row.id);let cover:Blob|undefined;
  if(coverPath){cover=prior?.cloudCoverPath===coverPath&&prior.cloudCoverHash===coverHash?prior.cover:undefined;if(!cover){cover=await (await api('/library/covers/'+coverPath,code)).blob();if(cover.size>10*1024*1024||!['image/jpeg','image/png','image/webp'].includes(cover.type))throw Error('Copertina cloud non valida.');const digest=await hash(cover);if(digest!==coverHash)throw Error('Copertina incompleta o diversa dal catalogo: riprova ad aggiornare.');}}
  return {...fields,cover,cloudCoverPath:coverPath||undefined,cloudCoverHash:coverHash||undefined};});
@@ -38,7 +39,7 @@ async function push(code:string,books:CachedBook[],base:Snapshot|undefined,chang
  if(navigator.onLine===false)throw Error('Sei offline. Ricollegati prima di salvare; il modulo conserva le modifiche.');
  if(!base)throw Error('Aggiorna la raccolta prima di salvare.');
  // Check before uploading images, then rely on DAV If-Match for the atomic write.
- const current=checked(await (await api('/library',code)).json());if(current.id!==base.id||current.revision!==base.revision)throw new CloudConflict('La raccolta è cambiata su un altro dispositivo. Premi Aggiorna raccolta, poi riprova a salvare. Il modulo resta aperto.');
+ const current=checked(await (await api('/library',code)).json(),true);if(current.id!==base.id||current.revision!==base.revision)throw new CloudConflict('La raccolta è cambiata su un altro dispositivo. Premi Aggiorna raccolta, poi riprova a salvare. Il modulo resta aperto.');
  const rows=await parallel(books,async b=>{const {cover,cloudCoverPath,cloudCoverHash,isbnKey,...fields}=b as CachedBook&{isbnKey?:string};let coverPath=cloudCoverPath||null,coverHash=cloudCoverHash||null;
  if(!cover){coverPath=null;coverHash=null;}else if(!coverPath||!coverHash||b.id===changed){const digest=await hash(cover);if(digest!==coverHash||!coverPath){const ext=({'image/jpeg':'jpg','image/png':'png','image/webp':'webp'} as Record<string,string>)[cover.type];if(!ext||cover.size>10*1024*1024)throw Error('Scegli una copertina JPG, PNG o WebP fino a 10 MB.');coverPath=newId()+'.'+ext;await api('/library/covers/'+coverPath,code,{method:'PUT',headers:{'Content-Type':cover.type},body:cover});}coverHash=digest;}
  return {...validate(fields),coverPath,coverHash};});

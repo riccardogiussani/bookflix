@@ -1,0 +1,9 @@
+import {useEffect,useState,type FormEvent} from 'react';
+import type {Book} from './data';
+import {ratingSummary} from './ratings';
+export function RatingAverage({book}:{book:Book}){const {average,count}=ratingSummary(book);return <p className="rating-average">{average===null?<span>Nessuna valutazione</span>:<><span className="rating-star" aria-hidden="true">★</span><strong>{average.toLocaleString('it-IT',{minimumFractionDigits:1,maximumFractionDigits:1})}/5</strong><span>Media di {count} {count===1?'valutazione':'valutazioni'}</span></>}</p>;}
+export function BookRatings({book,userId,username,disabled,onChange}:{book:Book;userId:string;username:string;disabled:boolean;onChange:(value:number|null)=>Promise<void>}){
+ const own=book.ratings?.find(r=>r.userId===userId)?.value;const [value,setValue]=useState(own?String(own):''),[error,setError]=useState('');useEffect(()=>{setValue(own?String(own):'');},[own,book.id,userId]);
+ async function submit(e:FormEvent){e.preventDefault();if(disabled)return;setError('');try{await onChange(value?Number(value):null);}catch(e){setError(e instanceof Error?e.message:'Voto non salvato. Riprova.');}}
+ return <section className="book-ratings" aria-labelledby="personal-rating-title"><h3 id="personal-rating-title">La tua valutazione</h3><p>Il voto di <strong>{username}</strong>. Puoi valutarlo anche senza scrivere una recensione.</p><form onSubmit={submit}><label htmlFor="personal-rating">Il tuo voto<select id="personal-rating" value={value} onChange={e=>setValue(e.target.value)} disabled={disabled}><option value="">Nessun voto</option>{[1,2,3,4,5].map(n=><option key={n} value={n}>{'★'.repeat(n)} · {n}/5</option>)}</select></label><button type="submit" className="primary" disabled={disabled||value===(own?String(own):'')}>{value?'Salva voto':'Rimuovi il mio voto'}</button></form>{error&&<p className="error" role="alert">{error}</p>}</section>;
+}
