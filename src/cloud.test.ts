@@ -2,11 +2,13 @@ import 'fake-indexeddb/auto';
 import {beforeEach,afterEach,expect,it,vi} from 'vitest';
 // @ts-expect-error Worker modules are plain JavaScript and run in the integration test.
 import worker from '../worker/scraper.mjs';
+// @ts-expect-error Shared Worker test fixtures run as JavaScript.
+import {testEnv,tokenFor,identityFor} from '../worker/test-auth.mjs';
 import {db,blankBook,exportLibrary,Library,saveBook} from './data';
 import {openCloud,refreshCloud,cloudSave,cloudDelete,cloudImport,CloudConflict} from './cloud';
 import {AccessDeniedError,WORKER_URL} from './isbn';
-const code='test-access-only';
-const env={ACCESS_CODE:code,KOOFR_USERNAME:'test@example.invalid',KOOFR_PASSWORD:'not-real-webdav',KOOFR_COLLECTION_ID:'ca91c2ce-b8c7-487e-8f40-99024a354c63'};
+const code=await tokenFor();
+const env={...testEnv,KOOFR_USERNAME:'test@example.invalid',KOOFR_PASSWORD:'not-real-webdav',KOOFR_COLLECTION_ID:'ca91c2ce-b8c7-487e-8f40-99024a354c63'};
 const root='https://app.koofr.net/dav/Koofr/.booflix/'+env.KOOFR_COLLECTION_ID;
 let files:Map<string,{body:Uint8Array;type:string;etag:string}>,revision:number,offline:boolean,failCatalog:boolean,conflictOnPut:boolean;
 let calls:{url:string;method:string;headers:Headers}[];
@@ -33,7 +35,7 @@ it('creates the cloud collection, uploads a cover, reloads it on a fresh device 
  const saved=await cloudSave(code,input);expect(saved).toHaveLength(1);expect(files.has(root+'/collection.json')).toBe(true);
  const catalog=JSON.parse(new TextDecoder().decode(files.get(root+'/books.json')!.body));expect(catalog.books[0].coverPath).toMatch(/\.png$/);expect(catalog.books[0].cover).toBeUndefined();
  await db.books.clear();await db.sync.clear();const loaded=await refreshCloud(code);expect(loaded[0].title).toBe(input.title);expect(loaded[0].location).toBe(input.location);expect(await loaded[0].cover?.text()).toBe('cover');
- const n=calls.filter(c=>c.method==='PUT'&&c.url.includes('/covers/')).length;await cloudSave(code,{...loaded[0],notes:'Nuova nota'});expect(calls.filter(c=>c.method==='PUT'&&c.url.includes('/covers/'))).toHaveLength(n);
+ const n=calls.filter(c=>c.method==='PUT'&&c.url.includes('/covers/')).length;await cloudSave(code,{...loaded[0],subtitle:'Nuovo sottotitolo'});expect(calls.filter(c=>c.method==='PUT'&&c.url.includes('/covers/'))).toHaveLength(n);
  const latest=(await db.books.toArray())[0];await cloudDelete(code,latest.id,latest.updatedAt);expect((await refreshCloud(code))).toEqual([]);
 });
 it('retains local data and draft on failed writes, and consults cached data when offline',async()=>{
@@ -43,12 +45,12 @@ it('retains local data and draft on failed writes, and consults cached data when
 });
 it('rejects a stale snapshot and a race during atomic PUT without changing the cache',async()=>{
  await openCloud(code);const saved=(await cloudSave(code,{...blankBook(),title:'Uno'}))[0];const server=files.get(root+'/books.json')!;server.etag='"another-device"';
- await expect(cloudSave(code,{...saved,notes:'locale'})).rejects.toBeInstanceOf(CloudConflict);expect((await db.books.get(saved.id))?.notes).toBe('');
- await refreshCloud(code);conflictOnPut=true;await expect(cloudSave(code,{...saved,notes:'locale'})).rejects.toBeInstanceOf(CloudConflict);expect((await db.books.get(saved.id))?.notes).toBe('');
+ await expect(cloudSave(code,{...saved,subtitle:'locale'})).rejects.toBeInstanceOf(CloudConflict);expect((await db.books.get(saved.id))?.subtitle).toBe('');
+ await refreshCloud(code);conflictOnPut=true;await expect(cloudSave(code,{...saved,subtitle:'locale'})).rejects.toBeInstanceOf(CloudConflict);expect((await db.books.get(saved.id))?.subtitle).toBe('');
 });
 it('rejects stale edits to the same book even after refreshing the collection',async()=>{
- await openCloud(code);const saved=(await cloudSave(code,{...blankBook(),title:'Uno'}))[0];const server=files.get(root+'/books.json')!;const catalog=JSON.parse(new TextDecoder().decode(server.body));catalog.books[0].updatedAt='2030-01-01T00:00:00.000Z';catalog.books[0].notes='Remoto';server.body=new TextEncoder().encode(JSON.stringify(catalog));server.etag='"new"';await refreshCloud(code);
- await expect(cloudSave(code,{...saved,notes:'Locale'})).rejects.toThrow('riapri');await expect(cloudDelete(code,saved.id,saved.updatedAt)).rejects.toBeInstanceOf(CloudConflict);
+ await openCloud(code);const saved=(await cloudSave(code,{...blankBook(),title:'Uno'}))[0];const server=files.get(root+'/books.json')!;const catalog=JSON.parse(new TextDecoder().decode(server.body));catalog.books[0].updatedAt='2030-01-01T00:00:00.000Z';catalog.books[0].subtitle='Remoto';server.body=new TextEncoder().encode(JSON.stringify(catalog));server.etag='"new"';await refreshCloud(code);
+ await expect(cloudSave(code,{...saved,subtitle:'Locale'})).rejects.toThrow('riapri');await expect(cloudDelete(code,saved.id,saved.updatedAt)).rejects.toBeInstanceOf(CloudConflict);
 });
 it('imports a ZIP via staging, preserving the current collection when the backup is invalid',async()=>{
  await openCloud(code);await cloudSave(code,{...blankBook(),title:'Originale'});
@@ -73,7 +75,7 @@ it('uploads a replacement cover, removes it and keeps backup records independent
 });
 it('does not resurrect a book deleted remotely after the user refreshes',async()=>{
  await openCloud(code);const book=(await cloudSave(code,{...blankBook(),title:'Eliminato'}))[0];const server=files.get(root+'/books.json')!;server.body=new TextEncoder().encode(JSON.stringify({format:'bookflix-cloud',version:1,books:[]}));server.etag='"deleted"';await refreshCloud(code);
- await expect(cloudSave(code,{...book,notes:'Vecchia modifica'},true)).rejects.toThrow('eliminato');expect(await db.books.count()).toBe(0);
+ await expect(cloudSave(code,{...book,subtitle:'Vecchia modifica'},true)).rejects.toThrow('eliminato');expect(await db.books.count()).toBe(0);
 });
 
 it('normalizza i cataloghi cloud precedenti senza posizione e non mostra banner di successo',async()=>{
@@ -81,3 +83,22 @@ it('normalizza i cataloghi cloud precedenti senza posizione e non mostra banner 
 });
 
 it('rifiuta posizioni non consentite prima di scrivere su Koofr',async()=>{await openCloud(code);await expect(cloudSave(code,{...blankBook(),title:'Posizione',location:'Garage'})).rejects.toThrow('Scegli una posizione');expect(files.has(root+'/books.json')).toBe(false);});
+
+it('elimina le vecchie note e lo stato anche dal catalogo Koofr senza generare recensioni',async()=>{
+ await openCloud(code);const book=(await cloudSave(code,{...blankBook(),title:'Precedente'}))[0];const stored=files.get(root+'/books.json')!;const catalog=JSON.parse(new TextDecoder().decode(stored.body));catalog.books[0].notes='Nota da eliminare';catalog.books[0].status='Letto';delete catalog.books[0].reviews;stored.body=new TextEncoder().encode(JSON.stringify(catalog));stored.etag='"old-notes"';
+ const loaded=await refreshCloud(code);expect(loaded[0].reviews).toEqual([]);expect(loaded[0]).not.toHaveProperty('notes');expect(loaded[0]).not.toHaveProperty('status');const cleaned=JSON.parse(new TextDecoder().decode(files.get(root+'/books.json')!.body));expect(cleaned.books[0]).not.toHaveProperty('notes');expect(cleaned.books[0]).not.toHaveProperty('status');expect(loaded[0].id).toBe(book.id);
+});
+it('mantiene le recensioni fra dispositivi e non perde commenti in un conflitto',async()=>{
+ const {changeReview}=await import('./reviews');await openCloud(code);let book=(await cloudSave(code,{...blankBook(),title:'Recensioni'}))[0];book=(await cloudSave(code,changeReview(book,identityFor('Riccardo'),{type:'add',text:'Un bel libro'}),true))[0];await db.books.clear();await db.sync.clear();const remote=(await refreshCloud(code))[0];expect(remote.reviews[0].author).toBe('Riccardo');expect(remote.reviews[0].text).toBe('Un bel libro');
+ const stored=files.get(root+'/books.json')!;stored.etag='"another-review"';await expect(cloudSave(code,changeReview(remote,identityFor('Sara'),{type:'add',text:'Da rileggere'}),true)).rejects.toBeInstanceOf(CloudConflict);expect((await db.books.get(book.id))?.reviews).toHaveLength(1);
+});
+
+it('non sostituisce la cache se la pulizia di note e stato incontra un conflitto',async()=>{
+ await openCloud(code);const book=(await cloudSave(code,{...blankBook(),title:'Precedente'}))[0];const stored=files.get(root+'/books.json')!;const raw=JSON.parse(new TextDecoder().decode(stored.body));raw.books[0].notes='Nota vecchia';raw.books[0].status='Letto';stored.body=new TextEncoder().encode(JSON.stringify(raw));stored.etag='"legacy-race"';const previous=(await db.sync.get('snapshot'))?.value;conflictOnPut=true;
+ await expect(refreshCloud(code)).rejects.toBeInstanceOf(CloudConflict);expect((await db.sync.get('snapshot'))?.value).toEqual(previous);expect((await db.books.get(book.id))?.reviews).toEqual([]);expect(JSON.parse(new TextDecoder().decode(files.get(root+'/books.json')!.body)).books[0].notes).toBe('Nota vecchia');
+});
+
+it('il Worker impedisce la falsificazione e la cancellazione delle recensioni altrui anche dal catalogo completo',async()=>{
+ const {changeReview}=await import('./reviews');await openCloud(code);let book=(await cloudSave(code,{...blankBook(),title:'Condiviso'}))[0];book=(await cloudSave(code,changeReview(book,identityFor('Riccardo'),{type:'add',text:'Recensione personale'}),true))[0];const sara=await tokenFor('sara');
+ await expect(cloudSave(sara,{...book,reviews:[]},true)).rejects.toThrow('recensioni di altri');await expect(cloudSave(sara,{...book,reviews:[{...book.reviews[0],text:'Modificata da Sara'}]},true)).rejects.toThrow('solo le tue');await expect(cloudDelete(sara,book.id,book.updatedAt)).rejects.toThrow('recensioni di altri');expect((await db.books.get(book.id))?.reviews[0].text).toBe('Recensione personale');
+});

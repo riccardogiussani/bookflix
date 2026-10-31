@@ -24,7 +24,7 @@ Inserisci la tua email Koofr quando richiesta. Poi:
 npx wrangler secret put KOOFR_PASSWORD --config .\worker\wrangler.jsonc
 ```
 
-Inserisci la password dedicata appena generata. Il secret `ACCESS_CODE` del login Bookflix rimane quello esistente; non serve cambiarlo.
+Inserisci la password dedicata appena generata. Il login ora usa i secret degli utenti personali: segui [USERS.md](USERS.md). I secret WebDAV restano separati.
 
 ## 3. Pubblica il Worker
 
@@ -34,7 +34,7 @@ npx wrangler deploy --config .\worker\wrangler.jsonc
 
 Il file `worker/koofr.mjs` deve rimanere insieme a `scraper.mjs`: Wrangler include automaticamente entrambi. Non usare il deploy automatico Vite dalla radice senza `--config`.
 
-Apri https://bookflix-scraper.riciriccio.workers.dev/health e controlla `version: "0.7.0"` e `storage.configured: true`. Questo conferma la presenza delle impostazioni, **non** la correttezza delle credenziali: quella viene verificata quando l’app legge o salva la raccolta.
+Apri https://bookflix-scraper.riciriccio.workers.dev/health e controlla `version: "0.8.0"` e `storage.configured: true`. Questo conferma la presenza delle impostazioni, **non** la correttezza delle credenziali: quella viene verificata quando l’app legge o salva la raccolta.
 
 ## 4. Pubblica l’app
 
@@ -77,4 +77,8 @@ Nessuna prova con il tuo account Koofr è stata eseguita dall’agente. I contro
 - Il browser aggiorna la propria cache solo dopo la conferma del catalogo remoto. Se manca una copertina o il catalogo è corrotto, la vecchia cache non viene sostituita. I download delle immagini sono limitati a quattro contemporanei; le copertine già presenti vengono riutilizzate.
 - Un errore dopo un timeout può avere esito incerto: aggiorna la raccolta prima di riprovare. Gli upload delle immagini precedono il catalogo; un salvataggio fallito può lasciare immagini non referenziate.
 - Limiti: catalogo JSON 16 MiB, 20.000 record, ogni immagine 10 MiB. Per il backup ZIP resta il limite di 200 MiB. Le quote del tuo piano Koofr e Cloudflare si applicano normalmente; non sono stati attivati servizi a pagamento.
-- Lo username Bookflix resta solo un nome visualizzato. Chi conosce la password Bookflix può leggere e modificare questa raccolta. Le credenziali Koofr non arrivano al browser, ma autorizzano il Worker ad accedere allo spazio WebDAV: conserva la password dedicata e revocala su Koofr se necessario.
+- Ogni utente Bookflix ha una password personale. Tutti condividono la raccolta, mentre le recensioni possono essere modificate solo dal loro autore. Le credenziali Koofr non arrivano al browser, ma autorizzano il Worker ad accedere allo spazio WebDAV: conserva la password dedicata e revocala su Koofr se necessario.
+
+## Aggiornamento a recensioni
+
+L’app aggiornata conserva le recensioni con testo, autore (username corrente), data di creazione e modifica nel catalogo. Le vecchie note e lo stato di lettura vengono rimossi dalla cache e dal catalogo cloud al caricamento, senza convertirli in recensioni. La pulizia cloud usa If-Match e non sovrascrive una versione cambiata da un altro dispositivo. Per le recensioni con utenti personali occorre il Worker 0.8.0 e i secret descritti in [USERS.md](USERS.md). La valutazione a stelle resta un campo del libro.

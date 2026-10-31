@@ -1,3 +1,5 @@
+import {testEnv,tokenFor} from './test-auth.mjs';
+const authToken=await tokenFor();
 import {afterEach,expect,it,vi} from 'vitest';
 import worker,{extract,sourceURL,imageURL,automaticURL,isbn10} from './scraper.mjs';
 const isbn='9788834603000';
@@ -24,8 +26,8 @@ it('limita anche le nuove copertine a domini e percorsi noti',()=>{for(const url
 it('non salva come copertina l’immagine segnaposto Hoepli',()=>{expect(imageURL('https://copertine.hoepli.it/hoepli/ndBigNew.png','https://www.hoepli.it')).toBe('');});
 it('segue il redirect canonico Feltrinelli e restituisce il link finale',async()=>{
  const target=`https://www.lafeltrinelli.it/titolo/e/${isbn}`;const fetch=vi.fn().mockResolvedValueOnce(new Response('',{status:301,headers:{Location:target}})).mockResolvedValueOnce(new Response(ld(book)));vi.stubGlobal('fetch',fetch);
- const r=await worker.fetch(new Request('https://worker.test/lookup?isbn='+isbn+'&source=feltrinelli',{headers:{Authorization:'Bearer test-only-code','CF-Connecting-IP':crypto.randomUUID()}}),{ACCESS_CODE:'test-only-code'});expect((await r.json()).candidates[0].url).toBe(target);expect(fetch).toHaveBeenCalledTimes(2);
+ const r=await worker.fetch(new Request('https://worker.test/lookup?isbn='+isbn+'&source=feltrinelli',{headers:{Authorization:'Bearer '+authToken,'CF-Connecting-IP':crypto.randomUUID()}}),testEnv);expect((await r.json()).candidates[0].url).toBe(target);expect(fetch).toHaveBeenCalledTimes(2);
 });
 it('non segue reindirizzamenti verso altri host o verso percorsi non bibliografici',async()=>{
- for(const location of ['https://internal.test/secret','https://www.lafeltrinelli.it/area-personale/']){const fetch=vi.fn().mockResolvedValue(new Response('',{status:302,headers:{Location:location}}));vi.stubGlobal('fetch',fetch);const r=await worker.fetch(new Request('https://worker.test/lookup?isbn='+isbn+'&source=feltrinelli',{headers:{Authorization:'Bearer test-only-code','CF-Connecting-IP':crypto.randomUUID()}}),{ACCESS_CODE:'test-only-code'});expect((await r.json()).candidates).toEqual([]);expect(fetch).toHaveBeenCalledOnce();}
+ for(const location of ['https://internal.test/secret','https://www.lafeltrinelli.it/area-personale/']){const fetch=vi.fn().mockResolvedValue(new Response('',{status:302,headers:{Location:location}}));vi.stubGlobal('fetch',fetch);const r=await worker.fetch(new Request('https://worker.test/lookup?isbn='+isbn+'&source=feltrinelli',{headers:{Authorization:'Bearer '+authToken,'CF-Connecting-IP':crypto.randomUUID()}}),testEnv);expect((await r.json()).candidates).toEqual([]);expect(fetch).toHaveBeenCalledOnce();}
 });

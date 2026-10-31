@@ -1,13 +1,14 @@
 import {afterEach,it,expect,vi} from 'vitest';
 import worker from './scraper.mjs';
-const code='test-access';const env={ACCESS_CODE:code,KOOFR_USERNAME:'test@example.invalid',KOOFR_PASSWORD:'test-webdav',KOOFR_COLLECTION_ID:'ca91c2ce-b8c7-487e-8f40-99024a354c63'};
+import {testEnv,tokenFor} from './test-auth.mjs';
+const code=await tokenFor();const env={...testEnv,KOOFR_USERNAME:'test@example.invalid',KOOFR_PASSWORD:'test-webdav',KOOFR_COLLECTION_ID:'ca91c2ce-b8c7-487e-8f40-99024a354c63'};
 const request=(path,method='GET',auth=code,headers={},body)=>new Request('https://worker.test'+path,{method,headers:{Origin:'https://riccardogiussani.github.io',Authorization:'Bearer '+auth,'CF-Connecting-IP':crypto.randomUUID(),...headers},body});
 afterEach(()=>vi.unstubAllGlobals());
 it('authenticates every library endpoint before contacting Koofr',async()=>{
  const fetch=vi.fn();vi.stubGlobal('fetch',fetch);for(const [path,method] of [['/library','GET'],['/library','PUT'],['/library/info','GET'],['/library/covers/ca91c2ce-b8c7-487e-8f40-99024a354c63.png','PUT']])expect((await worker.fetch(request(path,method,'wrong'),env)).status).toBe(401);expect(fetch).not.toHaveBeenCalled();
 });
 it('reports configuration missing, allows preflight and does not disclose WebDAV secrets',async()=>{
- const r=await worker.fetch(request('/library'),{ACCESS_CODE:code});expect(r.status).toBe(503);
+ const r=await worker.fetch(request('/library'),testEnv);expect(r.status).toBe(503);
  const preflight=await worker.fetch(request('/library','OPTIONS'),env);expect(preflight.headers.get('Access-Control-Allow-Methods')).toContain('PUT');expect(preflight.headers.get('Access-Control-Allow-Headers')).toContain('If-Match');
  const health=await (await worker.fetch(request('/health'),env)).text();expect(health).not.toContain(env.KOOFR_PASSWORD);expect(health).not.toContain(env.KOOFR_USERNAME);
 });

@@ -1,21 +1,15 @@
-const KEY='bookflix-access-code';
-const USER_KEY='bookflix-access-username';
-let memory='',memoryUser='';
-export type SavedLogin={username:string;accessCode:string;remember:boolean};
-export function readAccessCode(){return readSavedLogin()?.accessCode||'';}
-export function rememberedAccess(){try{return !!localStorage.getItem(KEY);}catch{return false;}}
+const KEY='bookflix-auth-session-v2';
+const LEGACY=['bookflix-access-code','bookflix-access-username'];
+export type SessionUser={id:string;username:string;displayName:string};
+export type SavedLogin={user:SessionUser;accessCode:string;expiresAt:string;remember:boolean};
+let memory:SavedLogin|null=null;
+export function validSession(value:unknown):value is SavedLogin{const s=value as SavedLogin;return !!s&&typeof s.accessCode==='string'&&s.accessCode.length<2048&&s.accessCode.split('.').length===3&&typeof s.user?.id==='string'&&!!s.user.id&&typeof s.user.username==='string'&&!!s.user.username&&typeof s.user.displayName==='string'&&!!s.user.displayName&&typeof s.expiresAt==='string'&&Date.parse(s.expiresAt)>Date.now();}
+function cleanLegacy(){for(const key of LEGACY){try{localStorage.removeItem(key);}catch{}try{sessionStorage.removeItem(key);}catch{}}}
 export function readSavedLogin():SavedLogin|null{
- let accessCode='',username='',remember=false;
- try{accessCode=localStorage.getItem(KEY)||'';if(accessCode){username=localStorage.getItem(USER_KEY)||'';remember=true;}}catch{}
- if(!accessCode)try{accessCode=sessionStorage.getItem(KEY)||'';if(accessCode)username=sessionStorage.getItem(USER_KEY)||'';}catch{}
- if(!accessCode){accessCode=memory;username=memoryUser;}
- // Older versions remembered only the code. Recover those sessions as well.
- return accessCode?{username:username.trim()||'Lettore',accessCode,remember}:null;
+ cleanLegacy();for(const kind of ['localStorage','sessionStorage'] as const)try{const storage=globalThis[kind],raw=storage.getItem(KEY);if(!raw)continue;const session=JSON.parse(raw);if(validSession(session))return {...session,remember:kind==='localStorage'};storage.removeItem(KEY);}catch{}
+ return validSession(memory)?memory:null;
 }
-export function storeAccessCode(code:string,remember:boolean,username=''){
- const value=code.trim();if(!value)throw Error('Inserisci il codice di accesso.');
- if(!/^[\x21-\x7E]{1,512}$/.test(value))throw Error('Usa un codice senza spazi, con lettere, numeri o simboli ASCII.');
- memory=value;memoryUser=username.trim();
- try{localStorage.removeItem(KEY);localStorage.removeItem(USER_KEY);sessionStorage.removeItem(KEY);sessionStorage.removeItem(USER_KEY);const target=remember?localStorage:sessionStorage;target.setItem(KEY,value);target.setItem(USER_KEY,memoryUser);}catch{throw Error('Il browser non consente di ricordare il codice. Puoi comunque usarlo per questa sessione.');}
-}
-export function forgetAccessCode(){memory='';memoryUser='';for(const key of [KEY,USER_KEY]){try{localStorage.removeItem(key);}catch{}try{sessionStorage.removeItem(key);}catch{}}}
+export function storeSession(session:SavedLogin){if(!validSession(session))throw Error('Sessione non valida.');memory=session;cleanLegacy();let stored=false;for(const kind of ['localStorage','sessionStorage'] as const)try{const storage=globalThis[kind];storage.removeItem(KEY);if((kind==='localStorage')===session.remember){storage.setItem(KEY,JSON.stringify(session));stored=true;}}catch{}return stored;}
+export function forgetAccessCode(){memory=null;cleanLegacy();try{localStorage.removeItem(KEY);}catch{}try{sessionStorage.removeItem(KEY);}catch{}}
+export function readAccessCode(){return readSavedLogin()?.accessCode||'';}
+export function rememberedAccess(){return readSavedLogin()?.remember||false;}

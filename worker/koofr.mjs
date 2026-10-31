@@ -1,3 +1,4 @@
+import {identifyReviews,protectReviews,ReviewError} from './review-policy.mjs';
 // Fixed Koofr destination: no caller-controlled host, credentials or arbitrary DAV paths.
 const ROOT='https://app.koofr.net/dav/Koofr/.booflix';
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -19,7 +20,7 @@ function catalog(data){
  }
  return data;
 }
-export async function koofr(request,env,headers){
+export async function koofr(request,env,headers,identity){
  const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers});
  try{
   const id=env.KOOFR_COLLECTION_ID;
@@ -38,17 +39,21 @@ export async function koofr(request,env,headers){
   if(path==='/library'&&request.method==='GET'){
    const r=await dav(base+'/books.json');if(r.status===404){await r.body?.cancel();return json({id,revision:null,catalog:{format:'bookflix-cloud',version:1,books:[]}});}
    await check(r);const revision=r.headers.get('ETag');if(!revision||revision.startsWith('W/'))throw new DavError('Koofr non restituisce una versione affidabile del catalogo: scrittura disabilitata.');
-   const data=catalog(JSON.parse(new TextDecoder().decode(await bytes(r,LIMIT))));return json({id,revision,catalog:data});
+   const data=catalog(JSON.parse(new TextDecoder().decode(await bytes(r,LIMIT))));return json({id,revision,catalog:identifyReviews(data,identity.users)});
   }
   if(path==='/library'&&request.method==='PUT'){
    const revision=request.headers.get('If-Match'),create=request.headers.get('If-None-Match')==='*';
    if(!create&&(!revision||!/^"[^"\r\n]{1,200}"$/.test(revision)))return json({error:'Manca la versione del catalogo. Aggiorna la raccolta prima di salvare.'},428);
-   const data=catalog(JSON.parse(new TextDecoder().decode(await bytes(request,LIMIT))));const body=JSON.stringify(data);await folders();
+   const incoming=catalog(JSON.parse(new TextDecoder().decode(await bytes(request,LIMIT))));
+   const previous=await dav(base+'/books.json');let old={format:'bookflix-cloud',version:1,books:[]};
+   if(previous.status===404){await previous.body?.cancel();if(!create)return json({error:'La raccolta non è più presente. Aggiornala prima di salvare.'},409);}
+   else{await check(previous);if(create||previous.headers.get('ETag')!==revision){await previous.body?.cancel();return json({error:'La raccolta è cambiata su un altro dispositivo. Aggiornala prima di salvare.'},409);}old=catalog(JSON.parse(new TextDecoder().decode(await bytes(previous,LIMIT))));}
+   const data=protectReviews(old,incoming,identity),body=JSON.stringify(data);await folders();
    const r=await dav(base+'/books.json','PUT',{headers:{'Content-Type':'application/json',...(create?{'If-None-Match':'*'}:{'If-Match':revision})},body});
    if(r.status===412){await r.body?.cancel();return json({error:'La raccolta è cambiata su un altro dispositivo. Aggiornala prima di riprovare; le modifiche nel modulo sono conservate.'},409);}
    await check(r);let next=r.headers.get('ETag');await r.body?.cancel();
    if(!next||next.startsWith('W/')){const saved=await check(await dav(base+'/books.json'));next=saved.headers.get('ETag');const actual=new TextDecoder().decode(await bytes(saved,LIMIT));if(actual!==body||!next||next.startsWith('W/'))return json({error:'Salvataggio inviato, ma la raccolta è cambiata o non è verificabile. Aggiornala prima di continuare.'},409);}
-   return json({revision:next});
+   return json({revision:next,catalog:data});
   }
   const file=path.match(/^\/library\/covers\/([^/]+)$/)?.[1];
   if(file&&COVER.test(file)&&UUID.test(file.split('.')[0])){
@@ -56,5 +61,5 @@ export async function koofr(request,env,headers){
    if(request.method==='PUT'){const type={'jpg':'image/jpeg','png':'image/png','webp':'image/webp'}[file.split('.')[1]];if(request.headers.get('Content-Type')!==type)return json({error:'Formato copertina non valido.'},400);const body=await bytes(request,10*1024*1024);await folders();const r=await dav(base+'/covers/'+file,'PUT',{headers:{'Content-Type':type,'If-None-Match':'*'},body});if(r.status===412){await r.body?.cancel();return json({error:'Identificativo copertina già presente. Riprova.'},409);}await check(r);await r.body?.cancel();return json({ok:true});}
   }
   return json({error:'Percorso o metodo della raccolta non consentito.'},404);
- }catch(e){return json({error:e instanceof DavError?e.message:e instanceof SyntaxError?'Catalogo JSON non valido.':'Connessione a Koofr non riuscita. Riprova; le modifiche nel modulo restano disponibili.'},e instanceof DavError?e.status:502);}
+ }catch(e){return json({error:e instanceof DavError||e instanceof ReviewError?e.message:e instanceof SyntaxError?'Catalogo JSON non valido.':'Connessione a Koofr non riuscita. Riprova; le modifiche nel modulo restano disponibili.'},e instanceof DavError||e instanceof ReviewError?e.status:502);}
 }

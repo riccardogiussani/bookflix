@@ -1,24 +1,10 @@
 import {WORKER_URL,AccessDeniedError} from './isbn';
-import {storeAccessCode,forgetAccessCode,type SavedLogin} from './access';
-export async function checkAccess(password:string,signal:AbortSignal){
- const code=password.trim();
- if(!/^[\x21-\x7E]{1,512}$/.test(code))throw Error('Inserisci la password del servizio, senza spazi.');
- let response:Response;
- try{response=await fetch(`${WORKER_URL}/auth/check`,{signal:AbortSignal.any([signal,AbortSignal.timeout(10000)]),headers:{Authorization:`Bearer ${code}`},credentials:'omit',cache:'no-store'});}
- catch{if(signal.aborted)throw signal.reason;throw Error('Servizio non raggiungibile. Controlla la connessione e riprova.');}
- if(response.status===401)throw new AccessDeniedError('Password non corretta. Riprova.');
- if(response.status===404)throw Error('Il servizio deve essere aggiornato alla versione con login.');
- if(response.status===429)throw Error('Troppi tentativi. Attendi un minuto e riprova.');
- if(response.status===503)throw Error('La password non è ancora configurata sul servizio.');
- if(!response.ok)throw Error('Verifica dell’accesso non disponibile. Riprova tra poco.');
- const result=await response.json().catch(()=>null);
- if(result?.authenticated!==true)throw Error('Il servizio non ha confermato l’accesso.');
- return code;
+import {storeSession,forgetAccessCode,validSession,type SavedLogin} from './access';
+async function request(path:string,signal:AbortSignal,options:RequestInit){
+ let response:Response;try{response=await fetch(WORKER_URL+path,{...options,signal:AbortSignal.any([signal,AbortSignal.timeout(10000)]),credentials:'omit',cache:'no-store'});}catch{if(signal.aborted)throw signal.reason;throw Error('Servizio non raggiungibile. Controlla la connessione e riprova.');}
+ if(response.status===401)throw new AccessDeniedError(path==='/auth/login'?'Username o password non corretti.':'Sessione scaduta. Accedi di nuovo.');
+ if(response.status===404||response.status===405)throw Error('Aggiorna il Worker alla versione con utenti personali.');if(response.status===429)throw Error('Troppi tentativi. Attendi un minuto e riprova.');if(response.status===503)throw Error('Gli utenti non sono ancora configurati sul servizio.');if(!response.ok)throw Error('Verifica dell’accesso non disponibile. Riprova tra poco.');const result=await response.json().catch(()=>null);if(result?.authenticated!==true)throw Error('Il servizio non ha confermato l’accesso.');return result;
 }
-
-export async function verifyLogin(saved:SavedLogin,signal:AbortSignal){
- let accessCode:string;try{accessCode=await checkAccess(saved.accessCode,signal);}catch(e){if(e instanceof AccessDeniedError&&!signal.aborted)forgetAccessCode();throw e;}signal.throwIfAborted();
- // A blocked browser store must not prevent a verified in-memory session.
- try{storeAccessCode(accessCode,saved.remember,saved.username);}catch{}
- return {username:saved.username.trim()||'Lettore',accessCode};
-}
+function session(result:any,accessCode:string,remember:boolean):SavedLogin{const saved={user:result.user,accessCode,expiresAt:result.expiresAt,remember};if(!validSession(saved))throw Error('Il servizio non ha restituito una sessione valida.');return saved;}
+export async function signIn(username:string,password:string,remember:boolean,signal:AbortSignal){if(!username.trim()||!password)throw Error('Inserisci username e password.');const result=await request('/auth/login',signal,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:username.trim(),password,remember})});signal.throwIfAborted();const saved=session(result,result.accessToken,remember);storeSession(saved);return saved;}
+export async function verifyLogin(saved:SavedLogin,signal:AbortSignal){try{const result=await request('/auth/check',signal,{headers:{Authorization:'Bearer '+saved.accessCode}});signal.throwIfAborted();const verified=session(result,saved.accessCode,saved.remember);storeSession(verified);return verified;}catch(e){if(e instanceof AccessDeniedError&&!signal.aborted)forgetAccessCode();throw e;}}

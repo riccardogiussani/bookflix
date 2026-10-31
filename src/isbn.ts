@@ -44,7 +44,7 @@ export async function lookupISBN(raw:string,signal:AbortSignal,workerURL=WORKER_
  const results=await Promise.allSettled(tasks.map(async task=>{
   const url=new URL('/lookup',base);url.searchParams.set('isbn',isbn);if(task.link)url.searchParams.set('url',task.link);else url.searchParams.set('source',task.id);
   const r=await fetch(url,{signal:AbortSignal.any([signal,batch.signal,AbortSignal.timeout(26000)]),credentials:'omit',headers});
-  if(r.status===401){batch.abort();throw new AccessDeniedError('Password non valida o modificata. Accedi di nuovo.');}
+  if(r.status===401){batch.abort();throw new AccessDeniedError('Sessione scaduta o revocata. Accedi di nuovo.');}
   const response=await r.json();if(!r.ok)throw Error(response.error||'Fonte non disponibile.');
   const notes:string[]=Array.isArray(response.warnings)?response.warnings.filter((v:unknown)=>typeof v==='string'):[];
   const books:Candidate[]=[];for(const entry of (Array.isArray(response.candidates)?response.candidates:[]).slice(0,2)){try{const c=candidate(entry,isbn);if(c&&new URL(c.url!).hostname===task.host)books.push(c);}catch{}}
@@ -55,7 +55,7 @@ export async function lookupISBN(raw:string,signal:AbortSignal,workerURL=WORKER_
  results.forEach((result,i)=>{if(result.status==='rejected'){if(result.reason instanceof AccessDeniedError)throw result.reason;warnings.push(`${tasks[i].name}: ${result.reason?.name==='TimeoutError'?'tempo di attesa scaduto':result.reason?.name==='TypeError'?'connessione al servizio non riuscita':result.reason?.name==='SyntaxError'?'risposta del servizio non valida':result.reason?.message||'fonte non disponibile'}`);}else{candidates.push(...result.value.books);warnings.push(...result.value.notes.map(n=>`${tasks[i].name}: ${n}`));}});
  let cover:Blob|undefined;
  for(const c of candidates){if(!c.url)continue;const coverURL=new URL('/cover',base);coverURL.searchParams.set('isbn',isbn);coverURL.searchParams.set('url',c.url);
- try{const image=await fetch(coverURL,{signal:AbortSignal.any([signal,AbortSignal.timeout(15000)]),credentials:'omit',headers});if(image.status===401)throw new AccessDeniedError('Password non valida o modificata. Accedi di nuovo.');if(!image.ok||Number(image.headers.get('Content-Length'))>10*1024*1024)continue;const blob=await image.blob();if(blob.size>0&&blob.size<=10*1024*1024&&['image/jpeg','image/png','image/webp'].includes(blob.type)){cover=blob;break;}}catch(e){if(e instanceof AccessDeniedError)throw e;if(signal.aborted)throw signal.reason;}}
+ try{const image=await fetch(coverURL,{signal:AbortSignal.any([signal,AbortSignal.timeout(15000)]),credentials:'omit',headers});if(image.status===401)throw new AccessDeniedError('Sessione scaduta o revocata. Accedi di nuovo.');if(!image.ok||Number(image.headers.get('Content-Length'))>10*1024*1024)continue;const blob=await image.blob();if(blob.size>0&&blob.size<=10*1024*1024&&['image/jpeg','image/png','image/webp'].includes(blob.type)){cover=blob;break;}}catch(e){if(e instanceof AccessDeniedError)throw e;if(signal.aborted)throw signal.reason;}}
  if(!cover)warnings.push('Copertina non recuperata: puoi caricarla dal dispositivo.');
  return {data:mergeCandidates(candidates),cover,candidates,warnings,...compareCandidates(candidates)};
 }
