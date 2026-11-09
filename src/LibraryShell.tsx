@@ -3,6 +3,8 @@ import {CloudConflict, jsonApi} from './central-api';
 import {clearLibrary, mayEdit, selectLibrary, type LibraryInfo, type Role} from './libraryContext';
 import {AccessDeniedError} from './isbn';
 import type {Session} from './LoginGate';
+import {AdminCatalog,AdminLogin} from './AdminCatalog';
+import type {AdminSession} from './admin-api';
 
 type Friend = {id:string; user:{id:string;name:string}; status:'pending'|'accepted'; incoming:boolean};
 type Member = {id:string;name:string;role:Role};
@@ -41,6 +43,7 @@ export function LibraryShell({session,children}:{session:Session;children:(libra
   const [view,setView] = useState<View>({kind:'home'});
   const [libraries,setLibraries] = useState<LibraryInfo[]>([]);
   const [profile,setProfile] = useState<Profile|null>(null);
+  const [adminSession,setAdminSession] = useState<AdminSession|null>(null);
   const [ready,setReady] = useState(false);
   const [locked,setLocked] = useState(false);
   const [busy,setBusy] = useState(false);
@@ -195,7 +198,7 @@ export function LibraryShell({session,children}:{session:Session;children:(libra
         {profile?.friendCode&&<div><dt>Codice amico</dt><dd className="friend-code">{profile.friendCode}</dd></div>}
       </dl><button type="button" onClick={session.onLogout}>Esci dall’account</button>
       {!profile&&<button type="button" disabled={busy} onClick={()=>void run(()=>bootstrap())}>Ricarica account</button>}
-    </section></ManagementPage>;
+    </section><AdminLogin accessCode={accessCode} onSession={setAdminSession} onLogout={session.onLogout} disabled={busy}/></ManagementPage>;
   } else if (!ready) {
     content = <main className="library-management"><p role="status">{busy?'Apertura delle tue librerie…':'Librerie da caricare'}</p>
       {!busy&&<button type="button" onClick={()=>void run(()=>bootstrap())}>Riprova</button>}
@@ -284,6 +287,10 @@ export function LibraryShell({session,children}:{session:Session;children:(libra
       </li>)}<li><button type="button" className="library-entry new-library" disabled={busy} onClick={beginCreate}>＋ Crea nuova libreria</button></li></ul>
     </section></ManagementPage>;
   }
+
+  if(adminSession)return <AdminCatalog accessCode={accessCode} session={adminSession} onLogout={session.onLogout} onExit={message=>{
+    setAdminSession(null);setError(message??'');
+  }}/>;
 
   return <div className="app-shell">
     {error&&<p className="error library-error" role="alert">{error}</p>}

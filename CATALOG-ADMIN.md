@@ -1,5 +1,18 @@
 # Bookflix: editor locale del catalogo centrale
 
+## Area amministrativa online
+
+Nell’app Bookflix, apri **Impostazioni e account → Accedi come amministratore**. Accedi prima con il tuo account Firebase, poi inserisci il valore di `ADMIN_TOKEN`. Il token è un secret del Worker. In `.env.example`, `ADMIN_TOKEN` è un segnaposto.
+
+Dalla radice del progetto, configura il secret con un token casuale di almeno 32 caratteri e pubblica il Worker. Il primo comando richiede il valore in modo interattivo.
+
+```powershell
+npx wrangler secret put ADMIN_TOKEN --config .\worker\wrangler.jsonc
+npx wrangler deploy --config .\worker\wrangler.jsonc
+```
+
+Pubblica anche il frontend. La sessione amministrativa dura 30 minuti e viene rimossa dal browser all’uscita dall’area o al ricaricamento della pagina. Il catalogo online permette ricerca, inserimento e modifica manuale, anche multipla, con copertine. Le sezioni **Generi**, **Autori**, **Titoli** e **Copertina** mostrano **In arrivo…**. Le istruzioni seguenti riguardano l’editor Python su localhost.
+
 L’home del progetto Python `local-cataloger/` mostra tutte le edizioni della collezione Firestore `catalog`, anche quelle non collegate a una libreria. Ricerca libera sui metadati, filtro per genere e copertine caricate quando visibili. Seleziona un libro per aprire l’editor nello stile di Bookflix.
 
 ## Avvio

@@ -3,6 +3,7 @@ import {META,UUID,same,isbn,metadata,bookKey,isBookKey,cover,canEdit,canReview,m
 import {createLibraryFolder,uploadCover,downloadCover} from './central-covers.mjs';
 import {protectReviews} from './review-policy.mjs';
 import {protectRatings} from './rating-policy.mjs';
+import {handleAdmin} from './admin-catalog.mjs';
 const now=()=>new Date().toISOString();
 const fail=(message,status=400)=>{throw new StoreError(message,status);};
 export async function hash(value){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))].map(b=>b.toString(16).padStart(2,'0')).join('');}
@@ -113,6 +114,7 @@ export function service(env,identity,store=firestore(env)){
 }
 async function body(request){if(Number(request.headers.get('Content-Length'))>250000)fail('Richiesta troppo grande.',413);const reader=request.body?.getReader();if(!reader)fail('Dati mancanti.');let size=0,parts=[];try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>250000)fail('Richiesta troppo grande.',413);parts.push(value);}}finally{await reader.cancel().catch(()=>{});}const bytes=new Uint8Array(size);let offset=0;for(const part of parts){bytes.set(part,offset);offset+=part.length;}try{const parsed=JSON.parse(new TextDecoder().decode(bytes));if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))fail('Serve un oggetto JSON.');return parsed;}catch{fail('JSON non valido.');}}
 export async function central(request,env,headers,identity){const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers});try{const api=service(env,identity),url=new URL(request.url),p=url.pathname.split('/').filter(Boolean),method=request.method;let result;
+ if(p[1]==='admin')return await handleAdmin(request,env,headers,identity,p,url,body);
  if(p[1]==='profile'&&p.length===2&&method==='GET')result=await api.profile();
  else if(p[1]==='friends'&&p.length===2&&method==='GET')result=await api.people();
  else if(p[1]==='friends'&&p.length===2&&method==='POST')result=await api.addFriend((await body(request)).target);
