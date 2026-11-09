@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="it"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bookflix · Catalogatore locale</title><link rel="stylesheet" href="/admin/nav.css">
+<style>body{font:16px system-ui;background:#11130f;color:#eceee5;max-width:1200px;margin:32px auto;padding:0 20px 110px}button,input,select,textarea{font:inherit;padding:10px;border-radius:8px;margin:5px;background:#253020;color:inherit;border:1px solid #667359}button{cursor:pointer}button:disabled{opacity:.5}table{width:100%;border-collapse:collapse;margin:24px 0}td,th{padding:14px;text-align:left;vertical-align:top;border-bottom:1px solid #444}small{display:block;color:#b7c1ac;white-space:pre-wrap;margin-top:6px}#error{color:#ffb0a0}label{display:inline-block;margin:8px}header p{max-width:850px;line-height:1.7}#apply{background:#c4d8a1;color:#17200c}code{overflow-wrap:anywhere}textarea{display:block;box-sizing:border-box;width:100%;min-width:180px;min-height:100px}.warning{color:#f2cf8a}@media(max-width:650px){table,tbody,tr,td{display:block}thead{display:none}td{padding:8px}tr{border-bottom:2px solid #667359}}</style>
+<style>
+  #genreCatalog{border:1px solid #526049;border-radius:14px;padding:16px;margin:18px 0;background:#192017}
+  #genreCatalog h2{margin:0 0 10px;font-size:20px}.catalog-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+  #genreSearch{min-width:140px;flex:1}.catalog-list{display:grid;gap:4px;max-height:340px;overflow:auto;padding:2px;margin:10px 0}
+  .genre-book{display:grid;grid-template-columns:24px minmax(0,1fr) auto;align-items:center;gap:8px;text-align:left;margin:1px;padding:8px 10px}
+  .genre-book[aria-pressed="true"]{background:#3d502e;border-color:#c4d8a1}.genre-book[aria-pressed="true"] .book-pick{color:#d8efbd}
+  .genre-book small{margin:0}.genre-book .book-state{font-size:13px;color:#c4d8a1}.genre-book .book-state.pending{color:#c1c7bb}
+  .genre-form{display:grid;grid-template-columns:repeat(2,minmax(130px,1fr));gap:6px}.genre-form label{margin:0;font-size:14px}
+  .genre-form select{display:block;width:100%;margin:3px 0 0}.genre-form button{justify-self:start;grid-column:1/-1}
+  #autoPreview{margin:12px 0}#autoPreview summary{cursor:pointer;color:#c4d8a1}
+  .title-form label{display:block;margin:0}.title-form input{width:calc(100% - 10px);box-sizing:border-box}
+  @media(max-width:460px){.genre-book{grid-template-columns:20px 1fr}.book-state{grid-column:2}.genre-form{grid-template-columns:1fr}}
+</style>
+<header><h1 id="heading">Bookflix · Catalogatore locale</h1><p id="intro"></p><p id="project"></p></header>
+<section id="genreCatalog" hidden aria-labelledby="genreCatalogTitle">
+  <h2 id="genreCatalogTitle">Libri nel catalogo</h2>
+  <div class="catalog-actions">
+    <input id="genreSearch" type="search" aria-label="Cerca un libro" placeholder="Cerca titolo, autore o ISBN…">
+    <select id="genreState" aria-label="Stato elaborazione"><option value="">Tutti gli stati</option><option value="pending">Da elaborare</option><option value="review">Da rivedere</option><option value="classified">Classificati</option></select>
+    <button id="refreshBooks" type="button">Aggiorna libri</button>
+  </div>
+  <div id="genreBooks" class="catalog-list" aria-label="Libri da selezionare"></div>
+  <button id="moreGenreBooks" type="button" hidden>Mostra altri libri</button>
+  <p id="genreBookCount" role="status"></p>
+  <div class="catalog-actions"><button id="selectAllGenreBooks" type="button" title="Seleziona tutti i risultati dei filtri correnti" disabled>Seleziona tutti</button><button id="startSelected" type="button" disabled>Genera proposte</button><button id="clearGenreBooks" type="button" disabled>Svuota selezione</button></div>
+</section>
+<details id="autoPreview" open><summary>Elaborazione per quantità</summary>
+  <form id="preview"><label>Libri da elaborare <input id="limit" type="number" value="30" min="1" max="200" required></label><label><input id="force" type="checkbox"><span id="force-label">Includi quelli già classificati</span></label><button id="start">Genera anteprima</button></form>
+</details>
+<div><label>Riprendi un’anteprima <select id="jobs"><option value="">Scegli…</option></select></label><button id="reload">Aggiorna elenco</button></div>
+<p id="status" role="status"></p><p id="error" role="alert"></p><button id="retry" disabled>Rielabora questi libri</button><button id="apply" disabled>Applica le proposte selezionate</button>
+<table><thead><tr><th>Seleziona</th><th id="before-heading">Libro e valori precedenti</th><th>Proposta</th><th>Esito</th></tr></thead><tbody id="rows"></tbody></table>
+<!-- admin-nav -->
+<script src="/admin/client.js"></script>
+<script src="/admin/genre-batch.js"></script>
+<script>
+const tool = {'/autori':'authors', '/titoli':'titles'}[location.pathname] || 'genres';
+const authorsMode = tool === 'authors';
+const titlesMode = tool === 'titles';
+let taxonomy, health, job = null, timer, busy = false, inFlight = false;
+const drafts = new Map(), proposalPicks = new Set();
+const $ = id => document.getElementById(id);
+const labels = group => Object.fromEntries(taxonomy[group].map(item => [item.id, item.label]));
+const text = (tag, value) => { const node = document.createElement(tag); node.textContent = value; return node; };
+const prefix = () => tool === 'genres' ? '' : '/' + tool;
+const eligible = entry => ['ready', 'apply_error'].includes(entry.status);
+
+function controls() {
+  const locked = busy || inFlight;
+  $('start').disabled = $('jobs').disabled = $('reload').disabled = locked;
+  $('retry').disabled = locked || !job?.entries.length;
+  $('apply').disabled = locked || !proposalPicks.size || drafts.size > 0;
+  for (const box of $('rows').querySelectorAll('[data-proposal]')) {
+    box.checked = proposalPicks.has(box.value);
+    box.disabled = locked || box.dataset.proposal !== 'ready' || drafts.has(box.value);
+  }
+  for (const node of $('rows').querySelectorAll('[data-review],[data-genre-choice],[data-title-choice]')) node.disabled = locked;
+  for (const node of $('rows').querySelectorAll('[data-genre-save]')) node.disabled = locked || !drafts.has(node.dataset.genreSave);
+  for (const node of $('rows').querySelectorAll('[data-title-save]')) node.disabled = locked || !drafts.has(node.dataset.titleSave);
+  if (!authorsMode) controlsGenreCatalog(locked);
+}
+
+async function run(action) {
+  if (inFlight) return;
+  inFlight = true; controls(); $('error').textContent = '';
+  try { await action(); }
+  catch (error) { $('error').textContent = error.message; }
+  finally { inFlight = false; controls(); }
+}
+
+function renderAuthorProposal(entry, after) {
+  const proposal = entry.proposed;
+  if (!proposal) return;
+  const original = proposal.authors.join('\n');
+  const applied = ['applied', 'already_applied'].includes(entry.status);
+  after.append(text('strong', proposal.authors.join('; ') || 'Nessun autore'));
+  const label = text('label', 'Un autore per riga');
+  const input = document.createElement('textarea');
+  input.value = drafts.get(entry.id) ?? original;
+  input.setAttribute('aria-label', 'Autori proposti per ' + entry.title);
+  input.disabled = busy || applied;
+  input.oninput = () => {
+    if (input.value === original) drafts.delete(entry.id);
+    else drafts.set(entry.id, input.value);
+    proposalPicks.delete(entry.id); controls();
+  };
+  label.append(input); after.append(label);
+  if (applied) return;
+  const save = text('button', 'Conferma correzione nell’anteprima');
+  save.dataset.review = '1';
+  save.onclick = () => run(async () => {
+    const authors = input.value.split(/\r?\n/).map(name => name.trim()).filter(Boolean);
+    if (!authors.length && !confirm('Confermare un elenco autori vuoto per questo libro?')) return;
+    const revised = await api('/authors/review', {jobId:job.id, editionId:entry.id, authors});
+    drafts.delete(entry.id); showJob(revised);
+  });
+  after.append(save);
+}
+
+function renderTitleProposal(entry, after) {
+  const original = entry.proposed?.title ?? entry.title;
+  const editable = ['preview_ready','applied','interrupted'].includes(job.state) &&
+    !['applied','already_applied','conflict'].includes(entry.status);
+  if (!editable) {
+    if (entry.proposed) after.append(text('strong', original));
+    return;
+  }
+  const form = text('div', ''); form.className = 'title-form';
+  const label = text('label', 'Titolo proposto');
+  const input = text('input', '');
+  input.type = 'text'; input.maxLength = 1000; input.dataset.titleChoice = '1';
+  input.value = drafts.get(entry.id) ?? original;
+  input.oninput = () => {
+    if (input.value === original) drafts.delete(entry.id); else drafts.set(entry.id, input.value);
+    proposalPicks.delete(entry.id); controls();
+  };
+  label.append(input); form.append(label);
+  const save = text('button', 'Conferma correzione nell’anteprima');
+  save.type = 'button'; save.dataset.titleSave = entry.id;
+  save.onclick = () => run(async () => {
+    const revised = await api('/titles/review', {jobId:job.id, editionId:entry.id, title:input.value});
+    drafts.delete(entry.id); showJob(revised);
+  });
+  form.append(save); after.append(form);
+}
+
+function render() {
+  busy = ['previewing', 'applying'].includes(job.state);
+  const states = {previewing:'elaborazione', preview_ready:'pronta per la verifica', applying:'aggiornamento Firestore',
+    applied:'applicazione terminata', interrupted:'interrotta, puoi riprendere', error:'errore'};
+  const titleStates = {ready:'Da confermare', unchanged:'Già uniforme', applied:'Aggiornato', already_applied:'Già aggiornato',
+    conflict:'Libro modificato', error:'Proposta non riuscita', apply_error:'Errore di salvataggio'};
+  $('status').textContent = 'Anteprima ' + job.id + ' · ' + (states[job.state] || job.state) + ' · ' + (job.mode || 'json') + ' · ' + job.entries.length + ' libri';
+  if (job.error) $('error').textContent = job.error;
+  $('rows').replaceChildren();
+  for (const entry of job.entries) {
+    const row = document.createElement('tr');
+    const pick = document.createElement('td');
+    const box = document.createElement('input');
+    box.type = 'checkbox'; box.value = entry.id; box.dataset.proposal = eligible(entry) ? 'ready' : 'blocked';
+    box.setAttribute('aria-label', 'Applica proposta per ' + entry.title);
+    if (!eligible(entry)) proposalPicks.delete(entry.id);
+    box.onchange = () => {
+      if (box.checked) proposalPicks.add(entry.id); else proposalPicks.delete(entry.id);
+      controls();
+    };
+    pick.append(box);
+    const before = document.createElement('td');
+    const prior = entry.before.metadata?.[authorsMode ? 'authors' : 'genres'] || [];
+    before.append(text('strong', entry.title));
+    if (!titlesMode) before.append(text('small', prior.join(', ') || 'Nessun valore'));
+    const after = document.createElement('td');
+    if (authorsMode) renderAuthorProposal(entry, after);
+    else if (titlesMode) renderTitleProposal(entry, after);
+    else renderGenreProposal(entry, after);
+    const why = document.createElement('td');
+    why.append(text('span', titlesMode ? (titleStates[entry.status] || entry.status) : entry.status));
+    if (entry.error) why.append(text('small', entry.error));
+    const proposal = entry.proposed;
+    if (authorsMode && proposal) {
+      why.append(text('small', (proposal.notes || []).join('\n')));
+      if (proposal.warnings?.length) {
+        const warning = text('small', proposal.warnings.join('\n'));
+        warning.className = 'warning'; why.append(warning);
+      }
+    } else if (proposal?.tokenUsage) {
+      const usage = proposal.tokenUsage;
+      why.append(text('small', usage.requestCount + ' chiamate · output: ' +
+        (usage.outputTokens === null ? 'non riportato dal server' : usage.outputTokens + ' token') +
+        ' · limite totale: ' + usage.maximumOutputTokens + ' token'));
+    } else if (proposal?.source === 'manual') {
+      why.append(text('small', 'Proposta corretta manualmente'));
+    }
+    row.append(pick, before, after, why);
+    $('rows').append(row);
+  }
+  controls();
+}
+
+function showJob(next) {
+  if (job?.id !== next.id) proposalPicks.clear();
+  job = next; render();
+  if (titlesMode) rememberTitleJob(job);
+  else if (!authorsMode) rememberGenreJob(job);
+}
+
+async function poll(id) {
+  clearTimeout(timer);
+  showJob(await api(prefix() + '/jobs/' + id));
+  if (busy) timer = setTimeout(() => tick(id), 1500);
+}
+
+function tick(id) {
+  if (inFlight) { timer = setTimeout(() => tick(id), 500); return; }
+  run(() => poll(id));
+}
+
+async function list() {
+  const ids = await api(prefix() + '/jobs');
+  $('jobs').replaceChildren(new Option('Scegli…', ''), ...ids.map(id => new Option(id, id)));
+}
+
+function configure() {
+  $('heading').textContent = 'Bookflix · ' + {authors:'Deduplicatore autori', genres:'Classificatore generi', titles:'Titoli'}[tool];
+  $('intro').textContent = authorsMode
+    ? 'Uniforma spazi, maiuscole e forme Cognome, Nome; deduplica nomi ripetuti nello stesso libro e usa una grafia comune nel catalogo. Iniziali, enti e varianti ambigue richiedono verifica. Le correzioni personali delle librerie restano conservate. Le correzioni nell’anteprima non scrivono su Firestore.'
+    : titlesMode ? 'Uniforma maiuscole e minuscole con Bonsai. Lo stile Bookflix usa le maiuscole per le parole principali, come in “Perry Mason e le Zampe di Velluto”. Seleziona i libri e rivedi le proposte prima di applicarle.'
+      : 'Seleziona i libri dal catalogo e genera le proposte con Bonsai. Puoi correggere la classificazione nell’anteprima prima di applicare le proposte selezionate.';
+  $('project').textContent = health.project + (authorsMode ? ' · regole locali, senza Bonsai' : ' · modalità ' + (titlesMode ? 'json' : health.mode));
+  $('before-heading').textContent = {authors:'Libro e autori precedenti', genres:'Libro e generi precedenti', titles:'Titolo attuale'}[tool];
+  $('force-label').textContent = authorsMode ? 'Rileggi tutto il catalogo da Firestore' : 'Includi quelli già classificati';
+  $('force').checked = false;
+  $('autoPreview').open = authorsMode;
+  $('autoPreview').hidden = titlesMode;
+  if (!authorsMode) configureGenreCatalog();
+  controls();
+}
+
+function discardDrafts() {
+  if (!drafts.size) return true;
+  if (!confirm('Scartare le correzioni non ancora confermate?')) return false;
+  drafts.clear(); render(); return true;
+}
+
+async function startPreview(options) {
+  if (!discardDrafts()) return;
+  const response = await api(prefix() + '/preview', options);
+  await poll(response.jobId);
+  await list();
+}
+
+window.addEventListener('beforeunload', event => {
+  if (drafts.size) { event.preventDefault(); event.returnValue = ''; }
+});
+$('retry').onclick = () => run(() => startPreview({editionIds:job.entries.map(entry => entry.id)}));
+$('preview').onsubmit = event => {
+  event.preventDefault();
+  run(() => startPreview({limit:Number($('limit').value), force:$('force').checked}));
+};
+$('reload').onclick = () => run(list);
+$('jobs').onchange = () => {
+  if ($('jobs').value) run(async () => { if (discardDrafts()) await poll($('jobs').value); });
+};
+$('apply').onclick = () => run(async () => {
+  if (drafts.size) throw Error('Conferma prima le correzioni nell’anteprima.');
+  const editionIds = [...proposalPicks];
+  if (!editionIds.length) throw Error('Seleziona almeno una proposta.');
+  const target = {authors:'gli autori', genres:'i generi', titles:'i titoli'}[tool];
+  if (!confirm('Aggiornare ' + target + ' di ' + editionIds.length + ' edizioni nel catalogo centrale di ' + health.project + '?')) return;
+  const response = await api(prefix() + '/apply', {jobId:job.id, editionIds});
+  await poll(response.jobId);
+});
+run(async () => {
+  taxonomy = await api('/taxonomy'); health = await api('/health');
+  configure(); await list();
+  if (!authorsMode) await loadGenreCatalog();
+});
+</script></html>

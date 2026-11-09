@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="it"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bookflix · Catalogo centrale</title><link rel="stylesheet" href="/admin/nav.css">
+<style>
+:root{font-family:'DM Sans',system-ui,sans-serif;color:#eceee5;background:#11130f;color-scheme:dark;--accent:#c4d8a1}*{box-sizing:border-box}body{margin:0}button,input,select,textarea{font:inherit}button{cursor:pointer;border:1px solid #48513d;border-radius:24px;padding:10px 18px;background:#252c20;color:inherit}button:hover{border-color:var(--accent)}button:disabled{opacity:.45;cursor:wait}.primary{background:var(--accent);color:#192012;border:0;font-weight:650}a{color:var(--accent)}header{padding:24px 5vw;border-bottom:1px solid #343d2c;display:flex;align-items:center;justify-content:space-between;gap:20px}.brand{font-family:'Libre Caslon Display',Georgia,serif;font-size:32px}.eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}main{max-width:1500px;margin:auto;padding:30px 5vw 100px}h1,h2{font-family:'Libre Caslon Display',Georgia,serif;font-weight:400}h1{font-size:36px;margin:10px 0}p{line-height:1.6}.muted,small{color:#b5beab}.toolbar{display:flex;gap:12px;margin:24px 0;align-items:center;flex-wrap:wrap}.toolbar input{flex:1;min-width:220px}.toolbar select{max-width:220px}input,select,textarea{width:100%;background:#11160f;border:1px solid #48513d;color:inherit;border-radius:10px;padding:11px 12px}input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:2px}textarea{resize:vertical}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:26px 18px}.book{display:block;border:0;padding:0;border-radius:8px;text-align:left;background:transparent;align-self:start}.book:hover .cover{transform:translateY(-4px);box-shadow:0 12px 28px #0007}.cover{aspect-ratio:2/3;background:linear-gradient(130deg,#3a462f,#20271a);border-radius:6px;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:14px;text-align:center;font-family:Georgia,serif;transition:.2s;width:100%;box-shadow:0 7px 18px #0005}.cover img{width:calc(100% + 28px);height:calc(100% + 28px);object-fit:cover;flex-shrink:0}.book strong{display:block;margin:12px 0 5px;line-height:1.3}.book small{display:block;font-size:12px}.error{color:#ffb7a6;white-space:pre-wrap}.message{white-space:pre-wrap;color:var(--accent)}#more{display:block;margin:35px auto}#more[hidden]{display:none}dialog{width:min(800px,95vw);max-height:94dvh;border:1px solid #48513d;border-radius:16px;background:#1b2017;color:inherit;padding:28px}dialog::backdrop{background:#000b;backdrop-filter:blur(5px)}.dialog-head{display:flex;justify-content:space-between;align-items:start;gap:15px}.dialog-head h2{font-size:30px;margin:8px 0 18px}.cover-editor{display:flex;gap:22px;align-items:center;margin:12px 0 26px}.cover-editor .cover{width:130px;flex-shrink:0}.cover-editor input{max-width:100%;margin:10px 0}.cover-options{min-width:0}.fields{display:grid;grid-template-columns:1fr 1fr;gap:18px}.fields label{display:block;font-size:13px}.fields label>input,.fields label>select,.fields label>textarea{margin-top:7px}.wide{grid-column:1/-1}.label-row{display:flex;justify-content:space-between;align-items:center;gap:8px}.suggest{border-radius:50%;padding:0;width:32px;height:32px;font-size:19px;flex-shrink:0}.actions{display:flex;justify-content:flex-end;gap:12px;margin-top:25px}.warning{padding:12px 15px;border:1px solid #596347;border-radius:10px;font-size:13px;background:#252d1d}#count{font-size:13px}.genres{border-top:1px solid #3c4533;padding-top:16px}.subfields{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px}.loading:before{content:'';display:inline-block;width:13px;height:13px;border:2px solid #596347;border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin-right:8px}@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:560px){header{padding:18px 5vw}.brand{font-size:26px}.grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:20px 12px}.book strong{font-size:13px}.fields,.subfields{grid-template-columns:1fr}.wide{grid-column:auto}dialog{padding:20px}.cover-editor{gap:14px}.cover-editor .cover{width:95px}button{padding:10px 14px}header small{display:none}}
+  .book{position:relative}.pick-mark{position:absolute;z-index:1;top:7px;right:7px;border:1px solid #c4d8a1;border-radius:50%;width:26px;height:26px;display:grid;place-items:center;background:#192012;color:#eaf3dc;font-weight:700}
+  .book[aria-pressed="true"] .pick-mark,.toolbar [aria-pressed="true"]{background:#c4d8a1;color:#192012}
+  .book[aria-pressed="true"] .cover{outline:3px solid #c4d8a1;outline-offset:2px}
+  #bulkInputs{border:0;padding:0;margin:0;min-width:0}.bulk-field{min-width:0}.bulk-field .apply-field{display:flex;align-items:center;gap:5px;white-space:nowrap}.apply-field input{width:auto;margin:0}.bulk-field:has(.apply-field input:checked) :is(input:not([type="checkbox"]),textarea,select){border-color:#c4d8a1}
+</style><body>
+<header><div><span class="brand">Bookflix</span> <small>· strumenti locali</small></div><div class="eyebrow">Catalogo centrale · Root</div></header>
+<main><div class="eyebrow">Tutti i libri, tutte le librerie</div><h1>Il catalogo completo</h1><p class="muted">Apri un libro per correggere i dati condivisi. Le modifiche diventano visibili in tutte le librerie collegate.</p>
+<div class="toolbar"><input id="search" type="search" placeholder="Cerca titolo, autore, editore, ISBN, trama…" aria-label="Cerca nel catalogo"><select id="genreFilter" aria-label="Filtra per genere"><option value="">Tutti i generi</option></select><button id="reload">↻ Aggiorna</button><button id="selectBooks" type="button" aria-pressed="false" disabled>Seleziona</button><button id="selectAllBooks" type="button" title="Seleziona tutti i risultati dei filtri correnti" disabled>Seleziona tutti</button><button id="addBook" class="primary" type="button" disabled>＋ Aggiungi libro</button></div>
+<p id="count" role="status" aria-live="polite"></p><p id="error" class="error" role="alert"></p><p id="notice" class="message" role="status"></p><div id="books" class="grid"></div><button id="more" hidden>Mostra altri libri</button></main>
+<dialog id="editor" aria-labelledby="editTitle"><form id="form"><div class="dialog-head"><div><div class="eyebrow">Catalogo centrale</div><h2 id="editTitle">Modifica libro</h2></div><button type="button" id="close" aria-label="Chiudi">×</button></div>
+<p id="editScope" class="warning"></p>
+<div class="cover-editor"><div id="preview" class="cover"></div><div class="cover-options"><label>Nuova copertina<input id="image" type="file" accept="image/jpeg,image/png,image/webp"></label><small>JPEG, PNG o WebP · massimo 10 MB</small><p><button id="readCover" type="button" disabled>✦ Leggi copertina con AI</button> <button id="removeCover" type="button">Rimuovi copertina</button></p></div></div><div class="fields">
+<label class="wide">Titolo *<input id="title" required maxlength="1000"></label><label class="wide">Sottotitolo<input id="subtitle" maxlength="1000"></label>
+<label class="wide"><span class="label-row">Autori <button class="suggest" type="button" data-suggest="authors" title="Uniforma e deduplica gli autori" aria-label="Suggerisci autori uniformati">↻</button></span><small>Separali con punto e virgola</small><input id="authors"></label>
+<label><span class="label-row">Editore <button class="suggest" type="button" data-suggest="publisher" title="Suggerisci la grafia uniforme dell’editore" aria-label="Suggerisci editore uniformato">↻</button></span><input id="publisher" maxlength="1000"></label>
+<label>Anno di pubblicazione<input id="year" inputmode="numeric" pattern="[0-9]{4}" maxlength="4"></label><label>Pagine<input id="pages" type="number" min="1" max="100000" step="1"></label><label>Lingua<input id="language" maxlength="1000"></label><label class="wide">ISBN<input id="isbn" maxlength="40"><small id="isbnHint"></small></label>
+<div class="wide genres"><div class="label-row"><span>Generi e classificazione</span><button class="suggest" type="button" data-suggest="genres" title="Classifica con Bonsai" aria-label="Suggerisci generi con Bonsai">✦</button></div><div class="subfields"><label>Genere primario<select id="primaryGenre"></select></label><label>Genere secondario (facoltativo)<select id="secondary1"></select></label><label>Altro secondario (facoltativo)<select id="secondary2"></select></label><label>Forma dell’opera<select id="workForm"></select></label><label>Pubblico<select id="audience"></select></label><label>Formato fisico<select id="physicalFormat"></select></label></div><label style="display:block;margin-top:14px">Generi precedenti / liberi <small>Separali con punto e virgola. Un primario strutturato sostituisce questa lista al salvataggio.</small><input id="genres"></label></div>
+<label class="wide">Trama<textarea id="description" rows="7" maxlength="100000"></textarea></label></div><p id="editError" class="error" role="alert"></p><p id="editStatus" class="message" role="status" aria-live="polite"></p><div class="actions"><button type="button" id="cancel">Annulla</button><button id="save" class="primary">Salva per tutti</button></div></form></dialog>
+<!-- admin-nav -->
+<dialog id="bulkEditor" aria-labelledby="bulkTitle"><form id="bulkForm" novalidate>
+  <div class="dialog-head"><div><div class="eyebrow">Catalogo centrale</div><h2 id="bulkTitle">Modifica libri</h2></div><button type="button" id="bulkClose" aria-label="Chiudi">×</button></div>
+  <p class="warning">Il trattino (—) indica valori diversi. Solo i campi con <strong>Applica</strong> selezionato verranno aggiornati nei libri e nelle copie collegate. Puoi spuntare un campo facoltativo vuoto per cancellarne il valore.</p>
+  <fieldset id="bulkInputs">
+    <div class="cover-editor"><div id="bulkPreview" class="cover"></div><div class="cover-options">
+      <p id="bulkCoverStatus" class="muted"></p>
+      <label>Sostituisci la copertina per tutti<input id="bulkImage" type="file" accept="image/jpeg,image/png,image/webp"></label>
+      <button id="bulkRemoveCover" type="button">Rimuovi per tutti</button> <button id="bulkResetCover" type="button" hidden>Annulla modifica copertina</button>
+    </div></div>
+    <div id="bulkFields" class="fields"></div>
+  </fieldset>
+  <p id="bulkError" class="error" role="alert"></p><p id="bulkStatus" class="message" role="status"></p>
+  <div class="actions"><button type="button" id="bulkCancel">Annulla</button><button id="bulkSave" class="primary">Salva modifiche</button></div>
+</form></dialog>
+<script src="/admin/client.js"></script>
+<script src="/admin/bulk-edit.js"></script>
+<script>
+const $=id=>document.getElementById(id),fields=['title','subtitle','authors','publisher','year','pages','language','isbn','genres','physicalFormat','description'];
+let books=[],taxonomy,current=null,draftCover=null,classification=null,locked=false,shown=60,loading=false,dirty=false,complete=false;
+let opening=false,draftId=null,draftImage=null;
+let selecting=false,matchingBooks=0;
+const selected=new Set();
+const el=(tag,text)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;return node;};
+const coverUrl=ref=>'/admin/covers/'+encodeURIComponent(ref.path);
+function cover(node,ref,title){node.replaceChildren();if(ref?.path){const image=el('img');image.loading='lazy';image.alt='Copertina di '+title;image.src=coverUrl(ref);image.onerror=()=>node.replaceChildren(el('span',title||'Copertina non disponibile'));node.append(image);}else node.append(el('span',title||'Nessuna copertina'));}
+function filtered(){const q=$('search').value.trim().toLocaleLowerCase('it'),g=$('genreFilter').value;return books.filter(b=>{const m=b.metadata||{};return(!g||(m.genres||[]).includes(g))&&(!q||[m.title,m.subtitle,...(m.authors||[]),m.publisher,m.isbn,m.year,m.language,...(m.genres||[]),m.description].join(' ').toLocaleLowerCase('it').includes(q));});}
+function updateCount(results){
+  const total=(loading?'Caricamento… ':'')+results.length+(complete?' libri nel catalogo':' libri caricati');
+  const selection=selecting?' · '+selected.size+' selezionati':'';
+  $('count').textContent=total+selection+(selected.size>200?' · massimo 200 per modifica':'');
+}
+function render(){
+  const results=filtered();matchingBooks=results.length;$('books').replaceChildren();
+  for(const b of results.slice(0,shown)){
+    const m=b.metadata||{},button=el('button');button.className='book';button.disabled=loading;
+    const c=el('div');c.className='cover';cover(c,b.cover,m.title);
+    button.append(c,el('strong',m.title||'Senza titolo'),el('small',(m.authors||[]).join(', ')));
+    if(selecting){
+      const mark=el('span');mark.className='pick-mark';mark.setAttribute('aria-hidden','true');button.append(mark);
+      const paint=()=>{const picked=selected.has(b.id);button.setAttribute('aria-pressed',String(picked));mark.textContent=picked?'✓':'';};
+      paint();
+      button.onclick=()=>{if(!selected.delete(b.id))selected.add(b.id);paint();setCatalogButtons();updateCount(results);};
+    }else button.onclick=()=>openBook(b.id);
+    $('books').append(button);
+  }
+  updateCount(results);$('count').classList.toggle('loading',loading);$('more').hidden=results.length<=shown;
+  setCatalogButtons();
+}
+function filters(){const previous=$('genreFilter').value;$('genreFilter').replaceChildren(new Option('Tutti i generi',''));const names=[...new Set(books.flatMap(b=>b.metadata?.genres||[]))].sort((a,b)=>a.localeCompare(b,'it'));for(const g of names)$('genreFilter').append(new Option(g,g));$('genreFilter').value=previous;}
+function setCatalogButtons(){
+  $('reload').disabled=loading||opening;
+  $('addBook').disabled=!taxonomy||loading||opening;
+  $('selectBooks').disabled=!taxonomy||loading||opening;
+  $('selectAllBooks').disabled=!complete||loading||opening||!matchingBooks;
+  $('selectBooks').setAttribute('aria-pressed',String(selecting));
+  $('selectBooks').textContent=selecting?'Fine selezione':'Seleziona';
+  $('addBook').textContent=selected.size>1?'Modifica ('+selected.size+')':selected.size?'Modifica':'＋ Aggiungi libro';
+}
+function clearSelection(){selecting=false;selected.clear();setCatalogButtons();}
+async function load(firstId){
+  if(loading||opening)return;
+  loading=true;complete=false;books=[];$('error').textContent='';render();
+  try{
+    let token='';
+    do{
+      const page=await api('/admin/catalog'+(token?'?pageToken='+encodeURIComponent(token):''));
+      books.push(...page.books);token=page.nextPageToken;filters();render();
+    }while(token);
+    complete=true;
+    const ids=new Set(books.map(book=>book.id));
+    for(const id of selected)if(!ids.has(id))selected.delete(id);
+  }catch(e){$('error').textContent=e.message+' Premi Aggiorna per riprovare.';}
+  finally{
+    if(firstId){
+      const index=books.findIndex(book=>book.id===firstId);
+      if(index>0)books.unshift(...books.splice(index,1));
+    }
+    loading=false;render();
+  }
+}
+function updateCoverButton(){$('readCover').disabled=locked||!draftCover;}
+function setLock(value){locked=value;for(const node of $('form').querySelectorAll('input,select,textarea,button'))node.disabled=value;updateCoverButton();}
+async function run(action,message){if(locked)return;setLock(true);$('editError').textContent='';$('editStatus').textContent=message||'';$('editStatus').classList.add('loading');try{await action();}catch(e){$('editError').textContent=e.message;$('editStatus').textContent='';}finally{setLock(false);$('editStatus').classList.remove('loading');}}
+function read(){const m={};for(const f of fields){let v=$(f).value;if(f==='authors'||f==='genres')v=v.split(';').map(s=>s.trim()).filter(Boolean);if(f==='pages')v=v?Number(v):null;m[f]=v;}return m;}
+function classificationFields(c){$('primaryGenre').value=c?.primaryGenre||'';$('secondary1').value=c?.secondaryGenres?.[0]||'';$('secondary2').value=c?.secondaryGenres?.[1]||'';$('workForm').value=c?.workForm||'';$('audience').value=c?.audience||'';}
+function openEditor(book){
+  const adding=!book;
+  current=book;draftId=adding?crypto.randomUUID():null;
+  classification=book?.classification||null;draftCover=book?.cover||null;draftImage=null;dirty=false;
+  const m=book?.metadata||{};
+  for(const f of fields)$(f).value=(f==='authors'||f==='genres')?(m[f]||[]).join('; '):m[f]??'';
+  classificationFields(classification);
+  $('editTitle').textContent=adding?'Aggiungi libro':m.title||'Modifica libro';
+  $('editScope').textContent=adding?'Il libro sarà aggiunto solo al catalogo centrale.':'Salvando, i campi modificati e la copertina sostituita vengono aggiornati per tutti, anche dove erano personalizzati. Posizione, voti e recensioni restano invariati.';
+  $('isbnHint').textContent=adding?'Facoltativo. Sono ammessi ISBN-10 e ISBN-13.':'Un cambio di ISBN aggiorna i collegamenti delle librerie. Un ISBN già presente non può essere duplicato.';
+  $('save').textContent=adding?'Aggiungi al catalogo':'Salva per tutti';
+  cover($('preview'),draftCover,m.title);
+  updateCoverButton();
+  $('image').value='';$('editError').textContent='';
+  $('editStatus').textContent=adding?'Compila la scheda e premi “Aggiungi al catalogo”.':'I suggerimenti compilano la bozza. Premi “Salva per tutti” per applicarla.';
+  $('editor').showModal();
+  if(adding)$('title').focus();
+}
+async function openBook(id){
+  if(locked||loading||opening)return;
+  opening=true;$('error').textContent='';setCatalogButtons();
+  try{openEditor(await api('/admin/books/'+encodeURIComponent(id)));}
+  catch(e){$('error').textContent=e.message;}
+  finally{opening=false;setCatalogButtons();}
+}
+$('selectBooks').onclick=()=>{
+  if(selecting)clearSelection();else selecting=true;
+  render();
+};
+$('selectAllBooks').onclick=()=>{
+  selecting=true;selected.clear();
+  for(const book of filtered())selected.add(book.id);
+  $('error').textContent='';render();
+};
+$('addBook').onclick=()=>{
+  const selection=books.filter(book=>selected.has(book.id));
+  if(selection.length!==selected.size){$('error').textContent='Aggiorna il catalogo per ricaricare tutti i libri selezionati.';return;}
+  if(selection.length===0)return openEditor(null);
+  if(selection.length===1)return openBook(selection[0].id);
+  if(selection.length>200){$('error').textContent='Seleziona al massimo 200 libri per volta.';return;}
+  $('error').textContent='';
+  openBulkEditor(selection,taxonomy,async result=>{
+    clearSelection();
+    $('notice').textContent=result.message+' '+result.references+' copie collegate.';
+    await load();
+  });
+};
+function closeEditor(){if(locked)return;if(dirty&&!confirm('Abbandonare le modifiche non salvate?'))return;$('editor').close();current=null;dirty=false;}
+$('close').onclick=closeEditor;$('cancel').onclick=closeEditor;$('editor').addEventListener('cancel',e=>{e.preventDefault();closeEditor();});$('form').addEventListener('input',()=>{dirty=true;});
+for(const f of ['primaryGenre','secondary1','secondary2','workForm','audience'])$(f).onchange=()=>{dirty=true;classification={...(classification||{}),source:'manual',primaryGenre:$('primaryGenre').value||null,secondaryGenres:[$('secondary1').value,$('secondary2').value].filter(Boolean),workForm:$('workForm').value||null,audience:$('audience').value||null};if(classification.primaryGenre){const names=new Map(taxonomy.genres.map(g=>[g.id,g.label]));$('genres').value=[classification.primaryGenre,...classification.secondaryGenres].map(id=>names.get(id)).join('; ');}};
+$('genres').oninput=()=>{classification=null;classificationFields(null);};
+for(const button of document.querySelectorAll('[data-suggest]'))button.onclick=()=>run(async()=>{const field=button.dataset.suggest,result=await api('/admin/suggest',{field,metadata:read()});if(field==='genres'){classification=result.classification;classificationFields(classification);if(classification.primaryGenre)$('genres').value=result.genres.join('; ');}else $(field).value=field==='authors'?result.authors.join('; '):result.publisher;dirty=true;$('editStatus').textContent=['Suggerimento inserito nella bozza. Salva per applicarlo.',...(result.warnings||[]),...(result.notes||[])].join('\n');},button.dataset.suggest==='genres'?'Bonsai sta classificando il libro…':'Confronto con il catalogo…');
+$('image').onchange=()=>run(async()=>{
+  const file=$('image').files[0];
+  if(!file)return;
+  if(file.size>10*1024*1024)throw Error('La copertina deve essere entro 10 MB.');
+  draftCover=await postImage('/admin/cover',file);
+  draftImage=file;dirty=true;cover($('preview'),draftCover,$('title').value);
+  $('editStatus').textContent=current?'Copertina pronta. Salva per applicarla a tutte le librerie.':'Copertina pronta. Verrà associata al libro al salvataggio.';
+},'Caricamento copertina…');
+$('removeCover').onclick=()=>{draftCover=null;draftImage=null;updateCoverButton();dirty=true;cover($('preview'),null,'Nessuna copertina');$('image').value='';$('editStatus').textContent='Copertina rimossa dalla bozza. Salva per confermare.';};
+
+async function coverPhoto(){
+  if(draftImage)return draftImage;
+  const response=await fetch(coverUrl(draftCover));
+  if(!response.ok)throw Error('Impossibile caricare la copertina per l’analisi.');
+  return response.blob();
+}
+$('readCover').onclick=()=>run(async()=>{
+  const {title,authors,publisher}=await readCoverMetadata(await coverPhoto());
+  const suggestions={title,authors:authors.join('; '),publisher};
+  let found=false;
+  for(const [field,value] of Object.entries(suggestions)){
+    if(!value)continue;
+    found=true;
+    if($(field).value!==value){$(field).value=value;dirty=true;}
+  }
+  $('editStatus').textContent=found?'Dati letti dalla copertina. Controlla i campi prima di salvare.':'Bonsai non ha trovato dati leggibili sulla copertina.';
+},'Bonsai sta leggendo la copertina…');
+$('form').onsubmit=e=>{
+  e.preventDefault();
+  const adding=!current;
+  run(async()=>{
+    const book={metadata:read(),cover:draftCover,classification};
+    const result=adding
+      ? await api('/admin/create',{...book,draftId})
+      : await api('/admin/save',{...book,id:current.id,revision:current.revision});
+    dirty=false;$('editor').close();current=null;
+    clearSelection();
+    if(adding){
+      $('search').value='';$('genreFilter').value='';shown=60;
+      $('notice').textContent=result.message;
+      await load(result.id);
+    }else{
+      $('notice').textContent=result.message+' '+result.references+' copie collegate.';
+      await load();
+    }
+  },adding?'Aggiunta al catalogo…':'Salvataggio per tutte le librerie…');
+};
+$('search').oninput=()=>{shown=60;render();};$('genreFilter').onchange=()=>{shown=60;render();};$('more').onclick=()=>{shown+=60;render();};$('reload').onclick=()=>load();
+window.addEventListener('beforeunload',e=>{if(dirty||bulkEditDirty){e.preventDefault();e.returnValue='';}});
+(async()=>{try{taxonomy=await api('/taxonomy');for(const[field,list]of[['primaryGenre','genres'],['secondary1','genres'],['secondary2','genres'],['workForm','workForms'],['audience','audiences'],['physicalFormat','physicalFormats']]){const select=$(field);select.append(new Option('Non indicato',''));for(const item of taxonomy[list])select.append(new Option(item.label,item.id));}await load();}catch(e){$('error').textContent=e.message;}})();
+</script></body></html>
