@@ -9,6 +9,8 @@ export async function hash(value){return [...new Uint8Array(await crypto.subtle.
 const publicProfile=p=>({id:p.uid,name:p.name,friendCode:p.friendCode});
 const roleOf=(library,uid)=>Object.hasOwn(library.members||{},uid)?library.members[uid]:null;
 const libraryView=(doc,uid)=>({id:doc.path.split('/').pop(),name:doc.data.name,role:roleOf(doc.data,uid),revision:doc.version});
+const titleFields=['title','authors','publisher','year','isbn'];
+const titleKey=title=>title.normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
 export function service(env,identity,store=firestore(env)){
  const uid=identity.user.id;
  // Add viewers only to owned libraries, preserving every explicit role already present.
@@ -80,9 +82,34 @@ export function service(env,identity,store=firestore(env)){
  async function complete(id,raw){const lib=await library(id,true),value=isbn(raw.isbn),path='lookupJobs/'+value,job=await store.get(path);if(!job||job.data.uid!==uid||job.data.libraryId!==id||job.data.lease!==raw.lease||job.data.expiresAt<Date.now())fail('Ricerca scaduta. Riprova.',409);const writes=[{delete:path,version:job.version},{path:lib.path,version:lib.version,data:{...lib.data,updatedAt:now()}}];if(raw.metadata){const meta=metadata({...raw.metadata,isbn:value}),key='isbn_'+value,existing=await store.get('catalog/'+key);if(!existing)writes.push({path:'catalog/'+key,create:true,data:{metadata:meta,cover:cover(raw.cover),createdAt:now()}});}await store.commit(writes);return {ok:true};}
  async function catalogueCover(id,key,headers){await library(id,true);if(!isBookKey(key))fail('Edizione non valida.');const doc=await store.get('catalog/'+key);if(!doc?.data.cover)fail('Copertina non disponibile.',404);return downloadCover(env,doc.data.cover.path,headers);}
  async function catalogue(id,raw){await library(id,true);const key='isbn_'+isbn(raw),doc=await store.get('catalog/'+key);return {book:doc?{...doc.data.metadata,id:key,cover:doc.data.cover}:null};}
+ async function searchCatalogueTitle(id,raw){
+  await library(id,true);
+  if(typeof raw!=='string'||raw.length>1000||!titleKey(raw))fail('Inserisci il titolo da cercare.');
+  const query=titleKey(raw),matches=[];
+  const documents=await store.list('catalog',titleFields.map(field=>'metadata.'+field));
+  for(const doc of documents){
+   const {title,authors,publisher,year,isbn}=doc.data.metadata||{};
+   if(typeof title!=='string')continue;
+   const value=titleKey(title),editionId=doc.path.split('/').pop();
+   if(!value.includes(query)||!isBookKey(editionId))continue;
+   matches.push({rank:value===query?0:value.startsWith(query)?1:2,book:{id:editionId,title,authors:Array.isArray(authors)?authors:[],publisher:publisher||'',year:year||'',isbn:isbn||''}});
+  }
+  matches.sort((a,b)=>a.rank-b.rank||a.book.title.localeCompare(b.book.title,'it')||a.book.id.localeCompare(b.book.id));
+  return {books:matches.slice(0,20).map(match=>match.book),hasMore:matches.length>20};
+ }
+ async function catalogueEdition(id,key){
+  await library(id,true);
+  if(!isBookKey(key))fail('Edizione non valida.');
+  const doc=await store.get('catalog/'+key);
+  if(!doc)fail('Questa edizione non è più nel catalogo Bookflix.',404);
+  const links=await store.query('libraries/'+id+'/items','catalogId','EQUAL',key);
+  const values=doc.data.metadata||{};
+  const metadataFields=Object.fromEntries(META.filter(field=>Object.hasOwn(values,field)).map(field=>[field,values[field]]));
+  return {book:{...metadataFields,id:key,classification:doc.data.classification,cover:doc.data.cover},linkedBookId:links[0]?.path.split('/').pop()};
+ }
  async function coverRead(id,key,headers){await library(id);if(!isBookKey(key))fail('Libro non valido.');const item=await store.get('libraries/'+id+'/items/'+key);if(!item)fail('Libro non disponibile.',404);const image=item.data.coverOverride===undefined?(await store.get('catalog/'+item.data.catalogId))?.data.cover:item.data.coverOverride;if(!image)fail('Copertina non disponibile.',404);return downloadCover(env,image.path,headers);}
  async function sourcePermission(id){return library(id,true);}
- return {profile,people,addFriend,respondFriend,listLibraries,createLibrary,manageLibrary,members,changeMember,books,save,remove,catalogue,claim,complete,catalogueCover,coverRead,sourcePermission};
+ return {profile,people,addFriend,respondFriend,listLibraries,createLibrary,manageLibrary,members,changeMember,books,save,remove,catalogue,searchCatalogueTitle,catalogueEdition,claim,complete,catalogueCover,coverRead,sourcePermission};
 }
 async function body(request){if(Number(request.headers.get('Content-Length'))>250000)fail('Richiesta troppo grande.',413);const reader=request.body?.getReader();if(!reader)fail('Dati mancanti.');let size=0,parts=[];try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>250000)fail('Richiesta troppo grande.',413);parts.push(value);}}finally{await reader.cancel().catch(()=>{});}const bytes=new Uint8Array(size);let offset=0;for(const part of parts){bytes.set(part,offset);offset+=part.length;}try{const parsed=JSON.parse(new TextDecoder().decode(bytes));if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))fail('Serve un oggetto JSON.');return parsed;}catch{fail('JSON non valido.');}}
 export async function central(request,env,headers,identity){const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers});try{const api=service(env,identity),url=new URL(request.url),p=url.pathname.split('/').filter(Boolean),method=request.method;let result;
@@ -92,6 +119,8 @@ export async function central(request,env,headers,identity){const json=(data,sta
  else if(p[1]==='friends'&&p.length===3&&method==='POST')result=await api.respondFriend(p[2],(await body(request)).accept===true);
  else if(p[1]==='libraries'&&p.length===2&&method==='GET')result=await api.listLibraries();
  else if(p[1]==='libraries'&&p.length===2&&method==='POST')result=await api.createLibrary((await body(request)).name);
+ else if(p[1]==='libraries'&&p.length===4&&p[3]==='catalogue-title'&&method==='GET')result=await api.searchCatalogueTitle(p[2],url.searchParams.get('title'));
+ else if(p[1]==='libraries'&&p.length===5&&p[3]==='catalogue-edition'&&method==='GET')result=await api.catalogueEdition(p[2],p[4]);
  else if(p[1]==='libraries'&&p.length===4){const id=p[2],action=p[3];if(action==='manage'&&method==='POST')result=await api.manageLibrary(id,await body(request));else if(action==='members'&&method==='GET')result=await api.members(id);else if(action==='members'&&method==='POST'){const b=await body(request);result=await api.changeMember(id,b.userId,b.role,b.revision);}else if(action==='books'&&method==='GET')result=await api.books(id,url.searchParams.get('revision'));else if(action==='books'&&method==='POST'){const b=await body(request);result=await api.save(id,b.book,b.revision);}else if(action==='remove'&&method==='POST'){const b=await body(request);result=await api.remove(id,b.id,b.revision);}else if(action==='lookup'&&method==='POST')result=await api.claim(id,(await body(request)).isbn);else if(action==='lookup-complete'&&method==='POST')result=await api.complete(id,await body(request));else if(action==='catalogue'&&method==='GET')result=await api.catalogue(id,url.searchParams.get('isbn'));else fail('Percorso non trovato.',404);}
  else if(p[1]==='libraries'&&p.length===5&&p[3]==='catalogue-cover'&&method==='GET')return await api.catalogueCover(p[2],p[4],headers);
  else if(p[1]==='libraries'&&p.length===5&&p[3]==='covers'&&method==='GET')return await api.coverRead(p[2],p[4],headers);

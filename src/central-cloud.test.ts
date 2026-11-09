@@ -9,6 +9,7 @@ import {selectLibrary,clearLibrary,libraryContext,type LibraryInfo} from './libr
 import {db,blankBook,Library,saveBook,exportLibrary,newId,type Book} from './data';
 import {openCloud,refreshCloud,cloudSave,cloudDelete,cloudImport} from './cloud';
 import {lookupISBN} from './isbn';
+import {fillFromCatalogue,searchCatalogueTitle,selectCatalogueEdition} from './title-lookup';
 vi.mock('./firebaseClient',()=>({currentAccessToken:async(code:string)=>code}));
 const code=await tokenFor(),uid=identityFor().id;
 let fixture:ReturnType<typeof harness>,library:LibraryInfo;
@@ -19,6 +20,37 @@ it('JWT Firebase → Worker → OAuth servizio → Firestore: crea una libreria 
 it('un refresh invariato legge solo le revisioni di libreria e catalogo e usa la cache',async()=>{await cloudSave(code,input());await refreshCloud(code);const reads=fixture.store.reads;await refreshCloud(code);expect(fixture.store.reads-reads).toBe(2);});
 it('persistenza e deduplica delle copertine: un unico file per due librerie',async()=>{const cover=new Blob([new Uint8Array([137,80,78,71,13,10,26,10])],{type:'image/png'});await cloudSave(code,{...input(),cover});const second=await jsonApi('/v2/libraries',code,{name:'Altra casa'});selectLibrary(second,uid);await cloudSave(code,{...input(),cover});expect(fixture.files.size).toBe(1);expect((await refreshCloud(code))[0].cover?.size).toBe(8);});
 it('la ricerca ISBN riusa il catalogo centrale senza contattare nessun portale',async()=>{await cloudSave(code,input());const second=await jsonApi('/v2/libraries',code,{name:'Altra casa'});selectLibrary(second,uid);const result=await lookupISBN('9788804668237',new AbortController().signal,undefined,'',code);expect(result.data.title).toBe('Edizione comune');expect(result.candidates[0].source).toBe('Catalogo Bookflix');expect(fixture.calls.some((c:{url:string})=>new URL(c.url).pathname==='/lookup')).toBe(false);expect(await db.books.count()).toBe(0);});
+it('cerca per titolo nel solo catalogo, distingue le edizioni e compila i campi della scheda scelta',async()=>{
+ const cover=new Blob([new Uint8Array([137,80,78,71,13,10,26,10])],{type:'image/png'});
+ await cloudSave(code,{...input(),title:'Città d’ombra',subtitle:'Cronache',publisher:'Primo editore',year:'2020',pages:100,language:'it',genres:['Giallo'],description:'Trama',physicalFormat:'brossura',location:'Camere',cover});
+ await cloudSave(code,{...input(),title:'Città d’ombra',publisher:'Secondo editore',isbn:'9780140449136'});
+ const path='catalog/isbn_9788804668237',central=await fixture.store.get(path);
+ fixture.store.put(path,{...central.data,classification:{primaryGenre:'giallo',secondaryGenres:[],genreVersion:'2.0',genreStatus:'classified'}});
+ const second:LibraryInfo=await jsonApi('/v2/libraries',code,{name:'Altra casa'});selectLibrary(second,uid);
+ const signal=new AbortController().signal;
+ const result=await searchCatalogueTitle(second.id,"CITTA D'OMBRA",code,signal);
+ expect(result.books.map(book=>book.publisher)).toEqual(expect.arrayContaining(['Primo editore','Secondo editore']));
+ expect(result.books).toHaveLength(2);
+ const chosen=await selectCatalogueEdition(second.id,'isbn_9788804668237',code,signal);
+ const draft=fillFromCatalogue({...blankBook(),location:'Taverna'},chosen);
+ expect(draft).toMatchObject({title:'Città d’ombra',subtitle:'Cronache',authors:['Autore'],publisher:'Primo editore',year:'2020',pages:100,language:'it',genres:['Giallo'],description:'Trama',isbn:'9788804668237',physicalFormat:'brossura',classification:{primaryGenre:'giallo'},location:'Taverna'});
+ expect(draft.cover?.size).toBe(cover.size);
+ expect((await searchCatalogueTitle(second.id,'Titolo inesistente',code,signal)).books).toEqual([]);
+ expect(fixture.calls.some((c:{url:string})=>new URL(c.url).pathname==='/lookup')).toBe(false);
+ expect(fixture.calls.some((c:{url:string})=>new URL(c.url).searchParams.getAll('mask.fieldPaths').includes('metadata.title'))).toBe(true);
+});
+it('l’aggiunta per titolo riusa l’edizione senza ISBN e riconosce un collegamento già presente',async()=>{
+ const [original]=await cloudSave(code,{...blankBook(),title:'Edizione senza codice'});
+ const second:LibraryInfo=await jsonApi('/v2/libraries',code,{name:'Altra casa'});selectLibrary(second,uid);
+ const signal=new AbortController().signal;
+ const {books}=await searchCatalogueTitle(second.id,'senza codice',code,signal);
+ expect(books.map(book=>book.id)).toEqual([original.id]);
+ const selected=await selectCatalogueEdition(second.id,books[0].id,code,signal);
+ const [saved]=await cloudSave(code,fillFromCatalogue(blankBook(),selected));
+ expect(saved.id).toBe(original.id);
+ expect(await fixture.store.list('catalog')).toHaveLength(1);
+ expect((await selectCatalogueEdition(second.id,original.id,code,signal)).linkedBookId).toBe(saved.id);
+});
 it('una modifica concorrente non viene sovrascritta e il modulo conserva la sua bozza',async()=>{const [book]=await cloudSave(code,input());await jsonApi('/v2/libraries/'+library.id+'/books',code,{book:{...book,title:'Aggiornato altrove',cover:null},revision:(book as Book&{revision:string}).revision});await expect(cloudSave(code,{...book,title:'Bozza locale'},true)).rejects.toBeInstanceOf(CloudConflict);expect((await db.books.get(book.id))?.title).toBe('Edizione comune');expect((await refreshCloud(code))[0].title).toBe('Aggiornato altrove');});
 it('rimozione da una libreria conserva l’edizione centrale',async()=>{const [book]=await cloudSave(code,input());await cloudDelete(code,book.id,book.updatedAt,book.revision);expect(await db.books.count()).toBe(0);expect((await fixture.store.list('catalog')).length).toBe(1);});
 it('cache separata per libreria e per utente, anche dopo un salvataggio',async()=>{await cloudSave(code,input());const firstDatabase=libraryContext().database,second=await jsonApi('/v2/libraries',code,{name:'Separata'});selectLibrary(second,uid);expect(await db.books.count()).toBe(0);await cloudSave(code,{...blankBook(),title:'Solo qui'});expect((await firstDatabase.books.toArray())[0].title).toBe('Edizione comune');selectLibrary(library,'another-user');expect(await db.books.count()).toBe(0);});
