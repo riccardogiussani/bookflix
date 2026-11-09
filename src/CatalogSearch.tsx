@@ -4,7 +4,7 @@ const PAGE_SIZE=60;
 export function CatalogSearch({query,onChange,ready,browsing,onBrowse}:{query:string;onChange:(query:string)=>void;ready:boolean;browsing:boolean;onBrowse:()=>void}){
  return <section className="catalog-search" aria-label="Ricerca e consultazione della libreria">
   <div className="catalog-search-heading"><label htmlFor="catalog-query">Cerca nella tua libreria</label>
-   <button type="button" disabled={!ready} onClick={onBrowse}>{browsing?'Torna alla libreria':'Sfoglia catalogo completo'}</button>
+   <button type="button" disabled={!ready} onClick={onBrowse}>{browsing?'Torna alla libreria':'Sfoglia la libreria'}</button>
   </div>
   <div className="catalog-search-input"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><input id="catalog-query" type="search" value={query} onChange={e=>onChange(e.target.value)} onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();onChange('');}}} placeholder="Titolo, autore, genere, ISBN…" autoComplete="off" spellCheck={false} disabled={!ready} aria-describedby="catalog-search-help"/>{query&&<button type="button" aria-label="Cancella ricerca" onClick={()=>{onChange('');document.getElementById('catalog-query')?.focus();}}>×</button>}</div>
   <p id="catalog-search-help">Cerca anche per editore, anno, lingua, trama, posizione e recensioni. Puoi combinare più parole.</p>

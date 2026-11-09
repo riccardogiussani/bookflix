@@ -1,4 +1,4 @@
-import {jsonApi,readCatalogueCover,type CloudCover} from './central-api';
+import {CloudError,jsonApi,readCatalogueCover,type CloudCover} from './central-api';
 import {newId,type Book} from './data';
 import {AccessDeniedError,type Metadata} from './isbn';
 
@@ -8,7 +8,14 @@ export type CatalogueSelection = {book:Edition;cover?:Blob;warning?:string;linke
 const libraryPath = (id:string) => '/v2/libraries/'+encodeURIComponent(id);
 
 export async function searchCatalogueTitle(libraryId:string,title:string,code:string,signal:AbortSignal):Promise<{books:CatalogueMatch[];hasMore:boolean}> {
-  return jsonApi(libraryPath(libraryId)+'/catalogue-title?'+new URLSearchParams({title}),code,undefined,signal);
+  try {
+    return await jsonApi(libraryPath(libraryId)+'/catalogue-title?'+new URLSearchParams({title}),code,undefined,signal);
+  } catch (failure) {
+    if (failure instanceof CloudError && failure.status === 404) {
+      throw Error('La ricerca per titolo richiede il Worker Bookflix aggiornato. Puoi continuare a compilare la scheda a mano.');
+    }
+    throw failure;
+  }
 }
 
 export async function selectCatalogueEdition(libraryId:string,editionId:string,code:string,signal:AbortSignal):Promise<CatalogueSelection> {

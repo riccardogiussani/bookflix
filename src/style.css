@@ -52,7 +52,6 @@
 .catalog-search-heading{display:flex;align-items:center;justify-content:space-between;gap:8px 14px;flex-wrap:wrap;margin-bottom:10px}
 .catalog-search-heading label{font-size:14px;font-weight:500}
 .catalog-search-heading button{border-radius:20px;padding:7px 12px;color:#c4d8a1;font-size:13px}
-.title-lookup{margin-bottom:18px}.title-lookup .isbn-field-heading{margin-bottom:8px}.title-lookup .isbn-field-heading button{padding:7px 11px;font-size:13px}
-.title-lookup>small{display:block;margin-top:7px;color:#a0aa93}.title-matches{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:6px;max-height:260px;overflow:auto}
+.title-lookup{margin-bottom:18px}
+.title-matches{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:6px;max-height:260px;overflow:auto}
 .title-matches li button{width:100%;text-align:left;overflow-wrap:anywhere}.title-matches small{display:block;margin-top:4px;color:#aab49d}
-.scanner-entry-actions{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}

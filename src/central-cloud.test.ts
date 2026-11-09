@@ -8,7 +8,7 @@ import {jsonApi,CloudError,CloudConflict} from './central-api';
 import {selectLibrary,clearLibrary,libraryContext,type LibraryInfo} from './libraryContext';
 import {db,blankBook,Library,saveBook,exportLibrary,newId,type Book} from './data';
 import {openCloud,refreshCloud,cloudSave,cloudDelete,cloudImport} from './cloud';
-import {lookupISBN} from './isbn';
+import {lookupISBN,WORKER_URL} from './isbn';
 import {fillFromCatalogue,searchCatalogueTitle,selectCatalogueEdition} from './title-lookup';
 vi.mock('./firebaseClient',()=>({currentAccessToken:async(code:string)=>code}));
 const code=await tokenFor(),uid=identityFor().id;
@@ -50,6 +50,14 @@ it('l’aggiunta per titolo riusa l’edizione senza ISBN e riconosce un collega
  expect(saved.id).toBe(original.id);
  expect(await fixture.store.list('catalog')).toHaveLength(1);
  expect((await selectCatalogueEdition(second.id,original.id,code,signal)).linkedBookId).toBe(saved.id);
+});
+it('spiega come ripristinare la ricerca se il Worker online non espone ancora il percorso per titolo',async()=>{
+ const health=await fixture.fetch(WORKER_URL+'/health');
+ expect((await health.json()).capabilities.catalogueTitleSearch).toBe(true);
+ const oldWorker=vi.fn(async()=>new Response(JSON.stringify({error:'Percorso non trovato.'}),{status:404}));
+ vi.stubGlobal('fetch',oldWorker);
+ await expect(searchCatalogueTitle(library.id,'Edizione comune',code,new AbortController().signal)).rejects.toThrow('richiede il Worker Bookflix aggiornato');
+ expect(oldWorker).toHaveBeenCalledTimes(1);
 });
 it('una modifica concorrente non viene sovrascritta e il modulo conserva la sua bozza',async()=>{const [book]=await cloudSave(code,input());await jsonApi('/v2/libraries/'+library.id+'/books',code,{book:{...book,title:'Aggiornato altrove',cover:null},revision:(book as Book&{revision:string}).revision});await expect(cloudSave(code,{...book,title:'Bozza locale'},true)).rejects.toBeInstanceOf(CloudConflict);expect((await db.books.get(book.id))?.title).toBe('Edizione comune');expect((await refreshCloud(code))[0].title).toBe('Aggiornato altrove');});
 it('rimozione da una libreria conserva l’edizione centrale',async()=>{const [book]=await cloudSave(code,input());await cloudDelete(code,book.id,book.updatedAt,book.revision);expect(await db.books.count()).toBe(0);expect((await fixture.store.list('catalog')).length).toBe(1);});

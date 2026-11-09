@@ -1,5 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import {AccessDeniedError} from './isbn';
+import {LookupButton} from './LookupButton';
 import {searchCatalogueTitle,selectCatalogueEdition,type CatalogueMatch,type CatalogueSelection} from './title-lookup';
 
 type Props = {
@@ -55,14 +56,15 @@ export function TitleEntry({value,onChange,libraryId,accessCode,searchDisabled,o
     });
   }
 
-  return <div className="wide title-lookup">
+  return <div className="wide isbn-field title-lookup">
     <div className="isbn-field-heading"><label htmlFor="manual-title">Titolo *</label>
-      <button type="button" disabled={busy||searchDisabled||!value.trim()} onClick={()=>void search()}>Cerca in Bookflix</button>
+      <LookupButton busy={busy} disabled={searchDisabled||!value.trim()} onClick={()=>void search()}
+        label="Recupera i dati dal catalogo Bookflix per titolo" busyLabel="Ricerca per titolo in corso"/>
     </div>
+    <small id="manual-title-help">↻ recupera i dati dal catalogo Bookflix e aggiorna l’anteprima.</small>
     <input id="manual-title" required maxLength={1000} value={value} disabled={busy} aria-describedby="manual-title-help"
       onChange={event=>{onChange(event.target.value);setMatches([]);setNotice('');}}
       onKeyDown={event=>{if(event.key==='Enter'){event.preventDefault();void search();}}}/>
-    <small id="manual-title-help">Cerca per titolo nel catalogo Bookflix per compilare la scheda.</small>
     {busy&&<div className="isbn-progress" role="status"><span>Consultazione del catalogo Bookflix…</span>
       <button type="button" onClick={()=>request.current?.abort()}>Interrompi</button></div>}
     {notice&&<p role="status" className="lookup-notice">{notice}</p>}

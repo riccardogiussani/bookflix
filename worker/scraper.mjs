@@ -143,7 +143,7 @@ export default {async fetch(request,env={},context={waitUntil:()=>{}}){
  if(origin&&!allowed.includes(origin))return json({error:'Origine non autorizzata.'},403);
  if(request.method==='OPTIONS')return new Response(null,{status:204,headers});
  if(!['GET','PUT','POST'].includes(request.method))return json({error:'Metodo non consentito.'},405);
- const url=new URL(request.url);if(url.pathname==='/health')return json({ok:true,version:'0.12.0',storage:{provider:'Firestore + Koofr',configured:!!(env.GOOGLE_SERVICE_ACCOUNT_JSON&&env.KOOFR_USERNAME&&env.KOOFR_PASSWORD)},authentication:{required:true,configured:!!env.FIREBASE_PROJECT_ID,mode:'firebase'},sources:Object.values(SOURCE_NAMES),automatic:['ibs','feltrinelli','hoepli','mondadori','giunti','amazon (ISBN 978)']});
+ const url=new URL(request.url);if(url.pathname==='/health')return json({ok:true,version:'0.12.0',capabilities:{catalogueTitleSearch:true},storage:{provider:'Firestore + Koofr',configured:!!(env.GOOGLE_SERVICE_ACCOUNT_JSON&&env.KOOFR_USERNAME&&env.KOOFR_PASSWORD)},authentication:{required:true,configured:!!env.FIREBASE_PROJECT_ID,mode:'firebase'},sources:Object.values(SOURCE_NAMES),automatic:['ibs','feltrinelli','hoepli','mondadori','giunti','amazon (ISBN 978)']});
  const v2=url.pathname.startsWith('/v2/');const library=v2||url.pathname==='/library'||url.pathname.startsWith('/library/');
  if(!library&&!(url.pathname==='/auth/login'&&request.method==='POST')&&request.method!=='GET')return json({error:'Metodo non consentito.'},405);
  if(!library&&!['/lookup','/cover','/auth/check','/auth/login'].includes(url.pathname))return json({error:'Percorso non trovato.'},404);
