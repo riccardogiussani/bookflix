@@ -1,6 +1,6 @@
 import {useEffect,useMemo,useRef,useState,type FormEvent} from 'react';
 import {AdminEditor} from './AdminEditor';
-import {adminClient,openAdminSession,type AdminEdition,type AdminResult,type AdminSession} from './admin-api';
+import {adminClient,openAdminSession,type AdminClient,type AdminEdition,type AdminResult,type AdminSession} from './admin-api';
 import {CloudError} from './central-api';
 import {AccessDeniedError} from './isbn';
 import {searchText} from './search';
@@ -39,6 +39,41 @@ export function AdminLogin({accessCode,onSession,onLogout,disabled}:{
 
 const sections=[['catalog','Catalogo generale','▤'],['genres','Generi','▦'],['authors','Autori','♙'],['titles','Titoli','Aa'],['covers','Copertina','▧']] as const;
 type Section=typeof sections[number][0];
+
+function CatalogueCover({api,id,revision,title}:{api:AdminClient;id:string;revision:string;title:string}) {
+  const frame=useRef<HTMLSpanElement>(null);
+  const [image,setImage]=useState<{revision:string;url:string}|null>(null);
+
+  useEffect(()=>{
+    const controller=new AbortController();
+    let url='';
+    let observer:IntersectionObserver|undefined;
+    let started=false;
+    async function load(){
+      if(started||controller.signal.aborted)return;
+      started=true;
+      try{
+        const blob=await api.cover(id,AbortSignal.any([controller.signal,AbortSignal.timeout(20000)]));
+        if(controller.signal.aborted)return;
+        url=URL.createObjectURL(blob);
+        setImage({revision,url});
+      }catch{/* The book stays usable when its cover is unavailable. */}
+    }
+    if(frame.current&&typeof IntersectionObserver!=='undefined'){
+      observer=new IntersectionObserver(entries=>{
+        if(!entries.some(entry=>entry.isIntersecting)||controller.signal.aborted)return;
+        observer?.disconnect();
+        void load();
+      },{rootMargin:'120px'});
+      observer.observe(frame.current);
+    }else void load();
+    return ()=>{observer?.disconnect();controller.abort();if(url)URL.revokeObjectURL(url);};
+  },[api,id,revision]);
+
+  return <span className="admin-catalog-cover" ref={frame} aria-hidden="true">
+    {image?.revision===revision?<img src={image.url} alt="" decoding="async" onError={()=>setImage(null)}/>:<span>{title}</span>}
+  </span>;
+}
 
 export function AdminCatalog({accessCode,session,onExit,onLogout}:{
   accessCode:string;session:AdminSession;onExit:(message?:string)=>void;onLogout:()=>void;
@@ -126,12 +161,18 @@ export function AdminCatalog({accessCode,session,onExit,onLogout}:{
       <p role="status">{busy?'Caricamento… ':''}{matches.length} di {books.length} libri{selecting?` · ${selected.size} selezionati`:''}</p>
       {error&&<p role="alert" className="error">{error}</p>}
       {notice&&<p className="notice" role="status">{notice}<button type="button" aria-label="Chiudi messaggio" onClick={()=>setNotice('')}>×</button></p>}
-      <ul className="admin-catalog-list">{matches.slice(0,shown).map(book=><li key={book.id}>
-        <button type="button" disabled={busy} aria-pressed={selecting?selected.has(book.id):undefined} onClick={()=>selecting?toggle(book.id):void openBooks([book.id])}>
-          <strong>{book.metadata.title||'Senza titolo'}</strong>
-          <small>{[...(book.metadata.authors??[]),book.metadata.publisher,book.metadata.isbn].filter(Boolean).join(' · ')}</small>
-        </button>
-      </li>)}</ul>
+      <ul className="admin-catalog-grid">{matches.slice(0,shown).map(book=>{
+        const bookTitle=book.metadata.title||'Senza titolo';
+        const isSelected=selected.has(book.id);
+        return <li key={book.id}>
+          <button className="admin-catalog-book" type="button" disabled={busy} aria-pressed={selecting?isSelected:undefined} onClick={()=>selecting?toggle(book.id):void openBooks([book.id])}>
+            <CatalogueCover api={api} id={book.id} revision={book.revision} title={bookTitle}/>
+            {selecting&&<span className="admin-catalog-pick" aria-hidden="true">{isSelected?'✓':''}</span>}
+            <strong>{bookTitle}</strong>
+            <small>{[...(book.metadata.authors??[]),book.metadata.publisher,book.metadata.isbn].filter(Boolean).join(' · ')}</small>
+          </button>
+        </li>;
+      })}</ul>
       {matches.length>shown&&<button type="button" onClick={()=>setShown(shown+60)}>Mostra altri libri</button>}
       </>}
     </main>
