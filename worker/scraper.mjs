@@ -1,3 +1,4 @@
+import {normalizeMetadata,selectMetadata} from '../shared/metadata-selection.mjs';
 import {authenticate,login,AuthError} from './auth.mjs';
 import {koofr} from './koofr.mjs';
 import {central,service} from './central.mjs';
@@ -61,9 +62,9 @@ function amazonBook(html,url,isbn){
  for(const key of ['data-old-hires','src']){const value=attribute(tag,key);if(value)images.push(plain(value));}
  try{const dynamic=JSON.parse(plain(attribute(tag,'data-a-dynamic-image')));images.push(...Object.entries(dynamic).sort((a,b)=>(b[1][0]*b[1][1])-(a[1][0]*a[1][1])).map(([u])=>u));}catch{}
  const description=element(html,'bookDescription_feature_div').match(/<div\b[^>]*class=["'][^"']*a-expander-content[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)?.[1]||element(html,'productDescription');
- const data={title:plain(element(html,'productTitle',2000)),authors:[...new Set(authors)],publisher:properties.editore||'',year:(properties['data di pubblicazione']||'').match(/\b\d{4}\b/)?.[0]||'',pages:parseInt(properties['lunghezza stampa']||properties['copertina flessibile']||properties['copertina rigida'])||null,language:properties.lingua||'',genres:[],description:plain(description.split(/<br\s*\/?>\s*<br\s*\/?>/i)[0])};
+ const data={title:plain(element(html,'productTitle',2000)),authors:[...new Set(authors)],publisher:properties.editore||'',year:(properties['data di pubblicazione']||'').match(/\b\d{4}\b/)?.[0]||'',pages:parseInt(properties['lunghezza stampa']||properties['copertina flessibile']||properties['copertina rigida'])||null,language:properties.lingua||'',genres:[],description:plain(description)};
  if(!data.title)throw Error('Amazon: titolo non disponibile.');
- return {source:sourceName(url),url,isbn,data,covers:[...new Set(images.map(v=>imageURL(v,url)).filter(Boolean))],retrievedAt:new Date().toISOString()};
+ return {source:sourceName(url),url,isbn,data:normalizeMetadata(data),covers:[...new Set(images.map(v=>imageURL(v,url)).filter(Boolean))],retrievedAt:new Date().toISOString()};
 }
 function named(x){return array(x).map(v=>plain(typeof v==='object'?v?.name:v)).filter(Boolean);}
 function typed(node,type){return array(node?.['@type']).includes(type);}
@@ -81,6 +82,7 @@ export function extract(html,url,isbn){
  for(const row of details.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)){const cells=[...row[1].matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)];if(cells.length===2)properties[plain(cells[0][1]).toLowerCase()]=plain(cells[1][1]);}
  const data={};const fields={title:n=>plain(n.name||n.headline),subtitle:n=>plain(n.alternativeHeadline),authors:n=>named(n.author),publisher:n=>named(n.publisher).join('; '),year:n=>plain(n.datePublished).match(/\b\d{4}\b/)?.[0]||'',pages:n=>Number(n.numberOfPages)||null,language:n=>plain(typeof n.inLanguage==='object'?n.inLanguage?.name:n.inLanguage),genres:n=>named(n.genre),description:n=>plain(n.description)};
  for(const [key,read] of Object.entries(fields))for(const n of matched){const value=read(n);if(value&&(Array.isArray(value)?value.length:true)){data[key]=value;break;}}
+ data.description=selectMetadata(matched.map(n=>({source:sourceName(url),data:{description:plain(n.description)}}))).data.description||'';
  data.publisher ||= properties.editore||'';data.year ||= (properties.anno||properties['data di uscita']||'').match(/\b\d{4}\b/)?.[0]||'';data.pages ||= Number(properties.pagine)||null;data.language ||= properties.lingua||properties.lingue||'';
  if(!Number.isInteger(data.pages)||data.pages<1)data.pages=null;
  data.genres=(data.genres||[]).filter(v=>!/^(libro|book)$/i.test(v));
@@ -98,7 +100,7 @@ export function extract(html,url,isbn){
  }
  if(!data.title)throw Error('Titolo assente: la struttura della scheda potrebbe essere cambiata.');
  const covers=[...new Set(matched.flatMap(n=>array(n.image)).map(v=>imageURL(v,url)).filter(Boolean))];
- return {source:sourceName(url),url,isbn,data,covers,retrievedAt:new Date().toISOString()};
+ return {source:sourceName(url),url,isbn,data:normalizeMetadata(data),covers,retrievedAt:new Date().toISOString()};
 }
 async function bounded(response,limit){if(!response.ok){await response.body?.cancel();throw Error(response.status===429?'Il portale limita le richieste. Riprova tra qualche minuto.':`Portale non disponibile (HTTP ${response.status}).`);}if(Number(response.headers.get('Content-Length'))>limit){await response.body?.cancel();throw Error('Risposta troppo grande.');}const reader=response.body?.getReader();if(!reader)throw Error('Risposta vuota.');let size=0;const chunks=[];try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>limit)throw Error('Risposta troppo grande.');chunks.push(value);}}finally{await reader.cancel().catch(()=>{});}const bytes=new Uint8Array(size);let pos=0;for(const c of chunks){bytes.set(c,pos);pos+=c.length;}return bytes;}
 async function pause(ms,signal){if(ms<=0)return;await new Promise((resolve,reject)=>{const timer=setTimeout(done,ms);function done(){signal?.removeEventListener('abort',abort);resolve();}function abort(){clearTimeout(timer);reject(signal.reason);}if(signal?.aborted)abort();else signal?.addEventListener('abort',abort,{once:true});});}
@@ -121,7 +123,7 @@ async function upstream(url,limit=MAX_HTML,kind='page',signal=AbortSignal.timeou
 }
 async function page(url,isbn){const result=await upstream(sourceURL(url));return extract(new TextDecoder().decode(result.bytes),result.url,isbn);}
 async function cachedPage(url,isbn,context){
- const keyFor=value=>new Request(`https://bookflix-cache.invalid/v3/page?isbn=${isbn}&url=${encodeURIComponent(value)}`);const key=keyFor(url);const cache=globalThis.caches?.default;const hit=await cache?.match(key);if(hit)return hit.json();
+ const keyFor=value=>new Request(`https://bookflix-cache.invalid/v4/page?isbn=${isbn}&url=${encodeURIComponent(value)}`);const key=keyFor(url);const cache=globalThis.caches?.default;const hit=await cache?.match(key);if(hit)return hit.json();
  const result=await page(url,isbn);if(cache){const response=()=>new Response(JSON.stringify(result),{headers:{'Cache-Control':'public, max-age=86400','Content-Type':'application/json'}});context.waitUntil(cache.put(key,response()));if(result.url!==url)context.waitUntil(cache.put(keyFor(result.url),response()));}return result;
 }
 async function discover(isbn){

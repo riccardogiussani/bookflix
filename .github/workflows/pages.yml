@@ -20,6 +20,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: python3 -m unittest discover -s local-cataloger -p "test_*.py"
       - run: npm test
       - run: npm run build
       - uses: actions/configure-pages@v5

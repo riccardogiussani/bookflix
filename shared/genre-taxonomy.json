@@ -1,0 +1,211 @@
+{
+  "version": "2.0",
+  "promptVersion": "1.0",
+  "genres": [
+    {
+      "id": "narrativa_generale",
+      "label": "Narrativa generale",
+      "description": "Narrativa letteraria, familiare o contemporanea senza un altro genere dominante."
+    },
+    {
+      "id": "giallo",
+      "label": "Giallo",
+      "description": "L’indagine e la soluzione di un mistero o delitto sono il motore della storia."
+    },
+    {
+      "id": "thriller",
+      "label": "Thriller",
+      "description": "Dominano tensione, minaccia e pericolo; risolvere un enigma non è necessariamente centrale."
+    },
+    {
+      "id": "fantascienza",
+      "label": "Fantascienza",
+      "description": "Scienza, tecnologie speculative, spazio o futuri possibili sostengono il mondo narrativo."
+    },
+    {
+      "id": "fantasy",
+      "label": "Fantasy",
+      "description": "Magia, soprannaturale o mondi fantastici sono elementi strutturali."
+    },
+    {
+      "id": "romance",
+      "label": "Romance",
+      "description": "La relazione sentimentale è il nucleo e il motore della vicenda, non una sottotrama."
+    },
+    {
+      "id": "horror",
+      "label": "Horror",
+      "description": "Il fine dominante è suscitare paura, terrore o inquietudine attraverso la minaccia."
+    },
+    {
+      "id": "romanzo_storico",
+      "label": "Romanzo storico",
+      "description": "Narrativa in cui un’epoca passata e la sua ricostruzione sono centrali; non saggistica storica."
+    },
+    {
+      "id": "avventura",
+      "label": "Avventura",
+      "description": "Esplorazione, viaggio, imprese e superamento di pericoli sono centrali."
+    },
+    {
+      "id": "biografie_autobiografie",
+      "label": "Biografie e autobiografie",
+      "description": "Ricostruzione documentaria di una vita reale, autobiografia o memorie; non romanzo biografico."
+    },
+    {
+      "id": "storia",
+      "label": "Storia",
+      "description": "Saggistica documentaria su eventi, epoche o processi storici; non narrativa ambientata nel passato."
+    },
+    {
+      "id": "filosofia",
+      "label": "Filosofia",
+      "description": "Argomentazione o studio di questioni filosofiche, etiche, conoscitive o metafisiche."
+    },
+    {
+      "id": "politica_societa",
+      "label": "Politica e società",
+      "description": "Analisi di istituzioni, potere, società, fenomeni sociali e attualità politica."
+    },
+    {
+      "id": "religione_spiritualita",
+      "label": "Religione e spiritualità",
+      "description": "Fedi, teologia, pratiche e riflessioni spirituali sono l’argomento principale."
+    },
+    {
+      "id": "psicologia",
+      "label": "Psicologia",
+      "description": "Mente, comportamento e processi psicologici trattati come argomento, non soltanto nei personaggi."
+    },
+    {
+      "id": "scienza_divulgazione",
+      "label": "Scienza e divulgazione",
+      "description": "Spiegazione scientifica del mondo naturale, ricerca e discipline scientifiche."
+    },
+    {
+      "id": "arte_cultura",
+      "label": "Arte e cultura",
+      "description": "Arti, musica, cinema, critica, letteratura e fenomeni culturali trattati come argomento."
+    },
+    {
+      "id": "economia_lavoro",
+      "label": "Economia e lavoro",
+      "description": "Economia, impresa, finanza, organizzazione e attività professionale."
+    },
+    {
+      "id": "tecnologia_informatica",
+      "label": "Tecnologia e informatica",
+      "description": "Tecnologie, ingegneria, computer, programmazione e sistemi digitali."
+    },
+    {
+      "id": "salute_benessere",
+      "label": "Salute e benessere",
+      "description": "Salute, medicina divulgativa e benessere fisico come argomento."
+    },
+    {
+      "id": "saggistica_generale",
+      "label": "Saggistica generale",
+      "description": "Opera non narrativa che non ricade nelle altre categorie tematiche."
+    },
+    {
+      "id": "poesia",
+      "label": "Poesia",
+      "description": "Opera prevalentemente poetica; non semplice prosa lirica."
+    },
+    {
+      "id": "teatro",
+      "label": "Teatro",
+      "description": "Testo drammatico destinato alla rappresentazione; non saggio sul teatro."
+    }
+  ],
+  "workForms": [
+    {
+      "id": "romanzo",
+      "label": "Romanzo"
+    },
+    {
+      "id": "racconto",
+      "label": "Racconto"
+    },
+    {
+      "id": "raccolta_racconti",
+      "label": "Raccolta di racconti"
+    },
+    {
+      "id": "saggio",
+      "label": "Saggio"
+    },
+    {
+      "id": "biografia_autobiografia",
+      "label": "Biografia / autobiografia"
+    },
+    {
+      "id": "diario_memorie",
+      "label": "Diario / memorie"
+    },
+    {
+      "id": "raccolta_poetica",
+      "label": "Raccolta poetica"
+    },
+    {
+      "id": "opera_teatrale",
+      "label": "Opera teatrale"
+    },
+    {
+      "id": "fumetto_graphic_novel",
+      "label": "Fumetto / graphic novel"
+    },
+    {
+      "id": "manuale_guida",
+      "label": "Manuale / guida"
+    },
+    {
+      "id": "consultazione",
+      "label": "Opera di consultazione"
+    },
+    {
+      "id": "antologia_mista",
+      "label": "Antologia mista"
+    }
+  ],
+  "audiences": [
+    {
+      "id": "bambini",
+      "label": "Bambini"
+    },
+    {
+      "id": "ragazzi",
+      "label": "Ragazzi"
+    },
+    {
+      "id": "young_adult",
+      "label": "Young adult"
+    },
+    {
+      "id": "adulti",
+      "label": "Adulti"
+    },
+    {
+      "id": "trasversale",
+      "label": "Trasversale"
+    }
+  ],
+  "physicalFormats": [
+    {
+      "id": "brossura",
+      "label": "Brossura"
+    },
+    {
+      "id": "copertina_rigida",
+      "label": "Copertina rigida"
+    },
+    {
+      "id": "spillato",
+      "label": "Spillato"
+    },
+    {
+      "id": "altro",
+      "label": "Altro"
+    }
+  ]
+}

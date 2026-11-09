@@ -8,3 +8,7 @@ dist/
 .wrangler/
 
 .bookflix-*.local.*
+
+.bookflix-classifier.local.jobs/
+local-cataloger/.venv/
+**/__pycache__/

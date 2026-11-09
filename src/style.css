@@ -30,3 +30,22 @@
 .auth-divider{display:flex;align-items:center;gap:12px;margin:20px 0 8px;color:#9eac92;font-size:11px}.auth-divider::before,.auth-divider::after{content:'';height:1px;background:#414c35;flex:1}.login-card .google-access{width:100%;border-radius:24px;background:#ecefe6;color:#17200c;font-weight:600}.login-card .google-access:hover{background:#fff}.login-card .auth-switch{border:0;width:100%;font-size:12px;color:#c4d8a1}.account-welcome{max-width:620px;margin:70px auto}.account-welcome>p:not(.eyebrow){font-size:14px;line-height:1.8;color:#b8c6aa}
 
 .library-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px max(20px,4vw);background:#1b1917;border-bottom:1px solid #ffffff18}.library-toolbar select{width:auto;max-width:100%;min-width:220px}.library-toolbar strong{font-size:.8rem;letter-spacing:.08em;text-transform:uppercase}.library-error{margin:18px 4vw}.management-heading{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}.management-heading h1{font-size:clamp(2rem,5vw,3.5rem);margin:12px 0 30px}.management-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}.management-grid>section{padding:28px;border:1px solid #ffffff20;border-radius:20px;background:#ffffff04}.management-grid .wide{grid-column:1/-1}.management-grid h2{margin-top:0}.management-grid p,.management-grid small{color:var(--muted,#aaa);line-height:1.7}.management-grid form{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:18px}.management-grid label{display:flex;flex-direction:column;gap:8px;flex:1;min-width:160px}.friend-code{display:inline-block;color:var(--text,#eee);font-family:monospace;user-select:all;overflow-wrap:anywhere}.member-list{list-style:none;padding:0}.member-list li{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:15px 0;border-bottom:1px solid #ffffff15}.member-list li>div{display:flex;gap:8px;flex-wrap:wrap}.member-list small{display:block}.member-list select{width:auto}.library-management{padding-top:36px;padding-bottom:60px}@media(max-width:680px){.management-grid{grid-template-columns:1fr}.management-grid>section{padding:20px}.library-toolbar select{flex:1;min-width:160px}.library-toolbar strong{width:100%}.library-toolbar button{font-size:.8rem}.management-grid form>button{width:100%}}
+.app-shell{min-height:100dvh;padding-bottom:calc(70px + env(safe-area-inset-bottom))}
+.app-bottom-nav{position:fixed;inset:auto 0 0;z-index:10;padding:6px max(6px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left));background:#191e16f5;border-top:1px solid #424d38;backdrop-filter:blur(12px)}
+.app-bottom-nav>div{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;max-width:580px;margin:auto}
+.app-bottom-nav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:54px;padding:3px;border:0;border-radius:12px;color:#bac4b1;font:600 12px/1.12 'DM Sans',system-ui,sans-serif;text-align:center}
+.app-bottom-nav button[aria-current="page"]{background:#2d3926;color:#d8eac0}
+.app-bottom-nav button[aria-current="page"]:disabled{opacity:1}
+.app-bottom-nav svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+#root:has(.app-bottom-nav) .pwa-controls{bottom:calc(78px + env(safe-area-inset-bottom))}
+.library-return{padding-top:14px}.library-return button{font-size:13px}
+.library-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.library-list li{display:flex;align-items:center;gap:8px}.library-list li>button:last-child:not(.library-entry){flex-shrink:0}
+.library-list .library-entry{flex:1;min-width:0;display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:left;overflow-wrap:anywhere}
+.library-entry small{display:block;margin-top:2px}.library-entry.new-library{border-style:dashed;color:#c4d8a1}
+.member-list li.friend-row{display:grid;grid-template-columns:minmax(0,1fr)}
+.friend-summary,.friend-actions,.friend-permissions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.friend-summary{justify-content:space-between}.friend-permissions{padding:12px;background:#20271b;border-radius:10px}
+.friend-permissions label{min-width:140px}.friend-permissions label select{width:100%}
+.account-details{display:grid;gap:12px;margin:0 0 20px}.account-details dd{margin:2px 0 0;overflow-wrap:anywhere}
+.account-details dt{font-size:12px;color:#a8ad9e}

@@ -1,10 +1,11 @@
+import type {Classification} from './classification';
 import Dexie, {type Table} from 'dexie';
 
 export const IDENTITY_EPOCH='firebase-self-service-v1';
 export type Review={id:string;author:string;authorId?:string;text:string;createdAt:string;updatedAt:string};
 export type Rating={userId:string;author:string;value:number;createdAt:string;updatedAt:string};
 export type Book = {
- id:string; revision?:string; title:string; subtitle:string; authors:string[]; publisher:string;
+ id:string; revision?:string; catalogRevision?:string; classification?:Classification; genreOverride?:boolean; physicalFormat?:string; title:string; subtitle:string; authors:string[]; publisher:string;
  year:string; pages:number|null; language:string; genres:string[]; description:string;
  isbn:string; ratings:Rating[]; reviews:Review[]; location:string;
  createdAt:string; updatedAt:string; cover?:Blob;

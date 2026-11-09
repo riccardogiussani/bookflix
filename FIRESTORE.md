@@ -13,7 +13,7 @@ Nel progetto Firebase già usato per il login:
 3. Scegli una regione europea vicina, per esempio `europe-west8` (Milano), se disponibile fra le opzioni. La regione non si cambia dopo la creazione.
 4. Mantieni il piano **Spark**: non attivare Blaze o una fatturazione per questa configurazione.
 
-Il livello gratuito di Firestore Standard comprende 1 GiB, 50.000 letture e 20.000 scritture al giorno. Il costo resta zero entro le quote; superarle può rendere il servizio temporaneamente indisponibile. Una copertina non disponibile usa un segnaposto e non blocca i metadati; un aggiornamento manuale ritenta il recupero. La prima apertura di una libreria legge elementi ed edizioni; gli aggiornamenti invariati leggono solo il documento della libreria. Le ricerche testuali avvengono nella copia locale.
+Il livello gratuito di Firestore Standard comprende 1 GiB, 50.000 letture e 20.000 scritture al giorno. Il costo resta zero entro le quote; superarle può rendere il servizio temporaneamente indisponibile. Una copertina non disponibile usa un segnaposto e non blocca i metadati; un aggiornamento manuale ritenta il recupero. La prima apertura di una libreria legge elementi ed edizioni; gli aggiornamenti invariati leggono soltanto le revisioni della libreria e del catalogo. Le ricerche testuali avvengono nella copia locale.
 
 Riferimenti: [creazione Firestore](https://firebase.google.com/docs/firestore/quickstart), [quote](https://firebase.google.com/docs/firestore/quotas). Le copertine restano su Koofr perché [Firebase Storage richiede Blaze](https://firebase.google.com/docs/storage/faqs-storage-changes-announced-sept-2024).
 
@@ -109,7 +109,7 @@ Rimuovere un libro elimina il suo collegamento nella libreria, conservando edizi
 
 ## Modello dei dati e verifiche tecniche
 
-- `catalog/{editionId}`: metadati bibliografici e riferimento alla copertina, condivisi e immutabili dopo la creazione.
+- `catalog/{editionId}`: metadati bibliografici e riferimento alla copertina, condivisi. Le modifiche nell’app sono locali; il catalogatore amministrativo può aggiornare generi e classificazione centrale, come descritto in [GENRES.md](GENRES.md).
 - `libraries/{UUID}`: nome, membri e ruoli.
 - `libraries/{UUID}/items/{editionId}`: collegamento, posizione, correzioni locali e copertina alternativa.
 - `libraries/{UUID}/reviews/` e `ratings/`: contributi in documenti separati, visibili solo ai membri.

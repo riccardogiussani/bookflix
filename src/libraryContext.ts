@@ -1,6 +1,6 @@
 import {useLibraryDatabase,type Library} from './data';
 export type Role='owner'|'editor'|'reviewer'|'viewer';
-export type LibraryInfo={id:string;name:string;role:Role;revision:string};
+export type LibraryInfo={id:string;name:string;role:Role;revision:string;primary?:boolean};
 export type Context={library:LibraryInfo;database:Library;userId:string};
 let active:Context|null=null;
 export function selectLibrary(library:LibraryInfo,userId:string){active={library,userId,database:useLibraryDatabase(userId,library.id)};return active;}

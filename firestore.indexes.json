@@ -1,11 +1,80 @@
 {
   "indexes": [],
   "fieldOverrides": [
-    {"collectionGroup": "catalog", "fieldPath": "metadata", "indexes": []},
-    {"collectionGroup": "catalog", "fieldPath": "cover", "indexes": []},
-    {"collectionGroup": "libraries", "fieldPath": "members", "indexes": []},
-    {"collectionGroup": "items", "fieldPath": "overrides", "indexes": []},
-    {"collectionGroup": "reviews", "fieldPath": "value", "indexes": []},
-    {"collectionGroup": "ratings", "fieldPath": "value", "indexes": []}
+    {
+      "collectionGroup": "catalog",
+      "fieldPath": "metadata",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "catalog",
+      "fieldPath": "cover",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "libraries",
+      "fieldPath": "members",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "items",
+      "fieldPath": "overrides",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "reviews",
+      "fieldPath": "value",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "ratings",
+      "fieldPath": "value",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "catalog",
+      "fieldPath": "classification",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "genreAudit",
+      "fieldPath": "before",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "genreAudit",
+      "fieldPath": "after",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "catalog",
+      "fieldPath": "authorNormalization",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "authorAudit",
+      "fieldPath": "before",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "authorAudit",
+      "fieldPath": "after",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "catalogAdminAudit",
+      "fieldPath": "before",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "catalogAdminAudit",
+      "fieldPath": "after",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "catalogAdminAudit",
+      "fieldPath": "libraryChanges",
+      "indexes": []
+    }
   ]
 }

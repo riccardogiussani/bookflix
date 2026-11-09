@@ -1,3 +1,4 @@
+import {normalizeMetadata,selectMetadata} from '../shared/metadata-selection.mjs';
 import {optionalContext} from './libraryContext';
 import {jsonApi,centralApi,uploadImage,hashBlob} from './central-api';
 import {currentAccessToken} from './firebaseClient';
@@ -7,10 +8,8 @@ export const WORKER_URL='https://bookflix-scraper.riciriccio.workers.dev';
 export type Metadata=Partial<Pick<Book,'title'|'subtitle'|'authors'|'publisher'|'year'|'pages'|'language'|'genres'|'description'>>;
 export type Candidate={source:string;url?:string;data:Metadata;covers:string[]};
 export type Lookup={data:Metadata;cover?:Blob;candidates:Candidate[];warnings:string[];conflicts?:string[];fieldSources?:Record<string,string>};
-export function mergeCandidates(candidates:Candidate[]):Metadata{
- const data:Record<string,unknown>={};for(const c of candidates)for(const [key,value] of Object.entries(c.data))if((data[key]===undefined||data[key]===null||data[key]===''||Array.isArray(data[key])&&!data[key].length)&&value!==undefined&&value!==null&&value!==''&&(!Array.isArray(value)||value.length))data[key]=value;
- return data as Metadata;
-}
+export function mergeCandidates(candidates:Candidate[],preferred?:Candidate):Metadata{return selectMetadata(candidates,preferred).data;}
+
 export function workerBase(raw:string){
  if(!raw.trim())throw Error('Configura l’indirizzo del tuo Worker nella sezione Servizio di recupero.');
  const url=new URL(raw.trim());if(url.protocol!=='https:'&&!(url.protocol==='http:'&&['localhost','127.0.0.1'].includes(url.hostname)))throw Error('Il servizio deve usare HTTPS.');
@@ -22,7 +21,7 @@ function candidate(raw:any,isbn:string):Candidate|undefined{
  const data:Metadata={};for(const k of ['title','subtitle','publisher','year','language','description'] as const)if(typeof raw.data[k]==='string')data[k]=raw.data[k];
  for(const k of ['authors','genres'] as const)if(Array.isArray(raw.data[k]))data[k]=raw.data[k].filter((v:unknown)=>typeof v==='string').slice(0,100);
  if(Number.isInteger(raw.data.pages)&&raw.data.pages>0)data.pages=raw.data.pages;
- return {source:raw.source,url:url.href,data,covers:[]};
+ return {source:raw.source,url:url.href,data:normalizeMetadata(data),covers:[]};
 }
 export const SOURCES=[{id:'feltrinelli',name:'Feltrinelli',host:'www.lafeltrinelli.it'},{id:'ibs',name:'IBS',host:'www.ibs.it'},{id:'amazon',name:'Amazon (sperimentale)',host:'www.amazon.it'},{id:'hoepli',name:'Hoepli',host:'www.hoepli.it'},{id:'mondadori',name:'Mondadori Store',host:'www.mondadoristore.it'},{id:'giunti',name:'Giunti al Punto',host:'giuntialpunto.it'}];
 export const FIELD_LABELS:Record<string,string>={title:'Titolo',subtitle:'Sottotitolo',authors:'Autori',publisher:'Editore',year:'Anno',pages:'Pagine',language:'Lingua',genres:'Generi',description:'Trama'};
@@ -32,9 +31,9 @@ function comparable(key:string,value:unknown):string{
  if(key==='language'){const languages:Record<string,string>={'it':'it','it it':'it',ita:'it',italiano:'it',italian:'it',en:'en','en gb':'en','en us':'en',eng:'en',inglese:'en',english:'en'};text=languages[text]||text;}
  return text;
 }
-export function compareCandidates(candidates:Candidate[]){
- const fieldSources:Record<string,string>={},values=new Map<string,Set<string>>();
- for(const c of candidates)for(const [key,value] of Object.entries(c.data)){if(value===null||value===undefined||value===''||Array.isArray(value)&&!value.length)continue;fieldSources[key] ||= c.source;if(!values.has(key))values.set(key,new Set());values.get(key)!.add(comparable(key,value));}
+export function compareCandidates(candidates:Candidate[],preferred?:Candidate){
+ const {fieldSources}=selectMetadata(candidates,preferred);const values=new Map<string,Set<string>>();
+ for(const c of candidates)for(const [key,value] of Object.entries(normalizeMetadata(c.data))){if(value===null||value===undefined||value===''||Array.isArray(value)&&!value.length)continue;if(!values.has(key))values.set(key,new Set());values.get(key)!.add(comparable(key,value));}
  const conflicts=[...values].filter(([,v])=>v.size>1).map(([key])=>FIELD_LABELS[key]||key);return {fieldSources,conflicts};
 }
 async function networkLookup(raw:string,signal:AbortSignal,workerURL=WORKER_URL,sourceURL='',accessCode=''):Promise<Lookup>{

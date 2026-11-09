@@ -2,6 +2,12 @@
 
 Libreria personale e condivisa, con copertine, ricerca, ISBN, recensioni e voti personali. Interfaccia React/TypeScript su GitHub Pages, PWA installabile, Firebase Authentication e Cloudflare Worker per accesso ai dati e scraping. Catalogo centrale e librerie sono su Firestore Standard; Koofr conserva le copertine condivise. Amici e ruoli sono gestiti dal Worker.
 
+**Editor root del catalogo centrale:** [CATALOG-ADMIN.md](CATALOG-ADMIN.md), con ricerca, suggerimenti per campo, classificazione Bonsai e copertine.
+
+**Normalizzazione e deduplicazione autori:** [AUTHORS.md](AUTHORS.md), nello stesso frontend locale con selettore in basso.
+
+**Generi strutturati e classificazione locale Bonsai:** [GENRES.md](GENRES.md). Anteprima senza scritture, applicazione esplicita e versione `2.0`.
+
 ## Avvio
 
 Con Node.js 22 o successivo:
